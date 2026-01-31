@@ -334,7 +334,7 @@ function saveAnnotation() {
     position: { page: state.currentPage, x: posX, y: posY },
     color: color,
     createdAt: new Date(),
-    replyTo: state.replyToId || undefined
+    replyTo: state.replyToId || null
   };
 
   state.myAnnotations.push(ann);
@@ -1345,8 +1345,8 @@ function confirmDecision(type) {
     documentId: DATA.document.id,
     participant: DATA.currentStep.participant,
     decision: decision,
-    rejectionDetails: rejectionDetails || undefined,
-    generalComment: generalComment || undefined,
+    rejectionDetails: rejectionDetails || null,
+    generalComment: generalComment || null,
     annotations: state.myAnnotations,
     signature: sigData,
     initials: initialsData,
