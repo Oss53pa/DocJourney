@@ -194,40 +194,23 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome - shown when no documents */}
-      {showWelcomeHero ? (
-        <div className="bg-neutral-900 rounded-2xl px-8 py-8 text-white">
-          <h1 className="font-brand text-3xl sm:text-4xl mb-2">DocJourney</h1>
-          <p className="text-neutral-400">
+      {/* Header banner */}
+      <div className="bg-neutral-900 rounded-2xl px-8 py-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-brand text-2xl sm:text-3xl">DocJourney</h1>
+          <p className="text-sm text-neutral-400">
             Le voyage du document à travers son circuit de validation
           </p>
         </div>
-      ) : (
-        /* Regular greeting header */
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-medium text-neutral-900 tracking-tight">
-              Bonjour{firstName ? ` ${firstName}` : ''} {'\u{1F44B}'}
-            </h1>
-            <p className="text-sm text-neutral-500 mt-1 capitalize">
-              {formattedDate}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <label className="btn-secondary cursor-pointer">
-              <Upload size={15} />
-              <span className="hidden sm:inline">Importer retour</span>
-              <span className="sm:hidden">Retour</span>
-              <input ref={returnFileRef} type="file" accept=".docjourney" className="hidden" onChange={handleReturnImport} />
-            </label>
-            <button onClick={() => navigate('/new')} className="btn-primary">
-              <Plus size={15} />
-              <span className="hidden sm:inline">Nouveau document</span>
-              <span className="sm:hidden">Nouveau</span>
-            </button>
-          </div>
+        <div className="text-right">
+          <p className="text-lg font-medium">
+            Bonjour{firstName ? ` ${firstName}` : ''} {'\u{1F44B}'}
+          </p>
+          <p className="text-sm text-neutral-400 capitalize">
+            {formattedDate}
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Sync notification */}
       {syncNotification && (
