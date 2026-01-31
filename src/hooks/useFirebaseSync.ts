@@ -58,11 +58,18 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
 
   // Handle new return from Firebase
   const handleNewReturn = useCallback((returnData: ReturnFileData, returnId: string) => {
+    console.log('=== NEW RETURN RECEIVED ===');
+    console.log('Return ID:', returnId);
+    console.log('Return data:', returnData);
+    console.log('Annotations count:', returnData.annotations?.length || 0);
+
     setPendingReturns(prev => {
       // Avoid duplicates
       if (prev.some(r => r.id === returnId)) {
+        console.log('Duplicate return, skipping');
         return prev;
       }
+      console.log('Adding return to pending list');
       return [...prev, {
         id: returnId,
         data: returnData,
@@ -138,13 +145,18 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
       }
 
       // Generate channel ID from owner email
+      console.log('=== FIREBASE SYNC DEBUG ===');
+      console.log('Owner email from settings:', settings.ownerEmail || 'NOT SET');
       const newChannelId = await generateChannelId(settings.ownerEmail);
+      console.log('Generated channelId:', newChannelId);
+      console.log('Listening on path: returns/' + newChannelId);
       setChannelId(newChannelId);
 
       // Start listening for returns
       const cleanup = await listenForReturns(newChannelId, handleNewReturn);
       cleanupRef.current = cleanup;
 
+      console.log('Firebase sync connected and listening!');
       setStatus('connected');
     } catch (error) {
       console.error('Firebase connection error:', error);
