@@ -12,6 +12,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   emailjsServiceId: 'service_fptbtnx',
   emailjsTemplateId: 'template_ih65oh8',
   emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
+  // Firebase Sync configuration (préconfigurée)
+  firebaseSyncEnabled: true,
+  firebaseApiKey: 'AIzaSyCqyTjJVgOZC_ThkP2ckjCOPQ9XZWjv35Q',
+  firebaseDatabaseURL: 'https://docjourney-default-rtdb.firebaseio.com',
+  firebaseProjectId: 'docjourney',
 };
 
 export function useSettings() {
