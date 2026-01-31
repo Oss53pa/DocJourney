@@ -684,136 +684,51 @@ export default function DocumentDetail() {
               <p className="text-sm text-neutral-400">Aucune étape complétée</p>
             </div>
           ) : (
-            completedSteps.map((step, i) => {
-              const isStepRejected = step.status === 'rejected';
-              const isStepSkipped = step.status === 'skipped';
-              const isModificationRequested = step.response?.decision === 'modification_requested';
-              const color = getParticipantColor(workflow!.steps.indexOf(step));
-              return (
-                <div
-                  key={step.id}
-                  className="card p-4 sm:p-5 animate-slide-up"
-                  style={{
-                    borderLeft: `3px solid ${isStepSkipped ? '#f59e0b' : color}`,
-                    animationDelay: `${i * 0.06}s`,
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      {isStepSkipped
-                        ? <ArrowRight size={18} className="text-amber-500 flex-shrink-0" />
-                        : isModificationRequested
-                          ? <AlertCircle size={18} className="text-amber-500 flex-shrink-0" />
-                          : isStepRejected
-                            ? <XCircle size={18} className="text-red-500 flex-shrink-0" />
-                            : <CheckCircle2 size={18} className="text-emerald-500 flex-shrink-0" />
-                      }
-                      <span className="text-[13px] font-normal text-neutral-800 uppercase tracking-wide">
-                        Étape {step.order} — {isStepSkipped ? 'Passée' : getRoleAction(step.role)}
+            <div className="card divide-y divide-neutral-100">
+              {completedSteps.map((step, i) => {
+                const isStepRejected = step.status === 'rejected';
+                const isStepSkipped = step.status === 'skipped';
+                const isModificationRequested = step.response?.decision === 'modification_requested';
+                const color = getParticipantColor(workflow!.steps.indexOf(step));
+                return (
+                  <div key={step.id} className="p-3 animate-slide-up" style={{ animationDelay: `${i * 0.04}s` }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-medium" style={{ backgroundColor: isStepSkipped ? '#f59e0b' : color }}>
+                        {step.order}
+                      </span>
+                      <span className="text-xs font-medium text-neutral-700">
+                        {step.participant.name}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        isModificationRequested ? 'bg-amber-100 text-amber-700'
+                        : isStepRejected ? 'bg-red-100 text-red-700'
+                        : isStepSkipped ? 'bg-amber-100 text-amber-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {isStepSkipped ? 'Passée' : getDecisionLabel(step.response?.decision || '')}
+                      </span>
+                      {step.response?.annotations && step.response.annotations.length > 0 && (
+                        <span className="text-[10px] text-neutral-400 flex items-center gap-0.5">
+                          <MessageSquare size={10} /> {step.response.annotations.length}
+                        </span>
+                      )}
+                      {step.response?.signature && (
+                        <span className="text-[10px] text-neutral-400">✍️</span>
+                      )}
+                      <span className="text-[10px] text-neutral-400 ml-auto">
+                        {step.completedAt && formatDate(step.completedAt)}
+                        {step.sentAt && step.completedAt && ` · ${formatDuration(step.sentAt, step.completedAt)}`}
                       </span>
                     </div>
-                    {step.completedAt && (
-                      <span className="text-[11px] text-neutral-400 font-normal flex-shrink-0 hidden sm:block">
-                        {formatDate(step.completedAt)}
-                      </span>
-                    )}
-                    {isStepSkipped && step.skippedAt && (
-                      <span className="text-[11px] text-amber-500 font-normal flex-shrink-0 hidden sm:block">
-                        {formatDate(step.skippedAt)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm text-neutral-700">
-                      <span className="font-normal">{step.participant.name}</span>
-                      <span className="text-neutral-400"> ({step.participant.email})</span>
-                    </p>
-
-                    {/* Reassigned from */}
-                    {step.reassignedFrom && (
-                      <p className="text-xs text-sky-600">
-                        Réassigné depuis : {step.reassignedFrom.name} ({step.reassignedFrom.email})
+                    {(step.response?.generalComment || step.response?.rejectionDetails) && (
+                      <p className="text-[11px] text-neutral-500 mt-1 ml-7 line-clamp-2">
+                        {step.response.rejectionDetails?.reason || step.response.generalComment}
                       </p>
                     )}
-
-                    {/* Skipped reason */}
-                    {isStepSkipped && step.skippedReason && (
-                      <div className="bg-amber-50 rounded-xl p-3 ring-1 ring-amber-200">
-                        <p className="text-[13px] text-amber-700">Raison : {step.skippedReason}</p>
-                      </div>
-                    )}
-
-                    {step.sentAt && step.completedAt && (
-                      <p className="text-xs text-neutral-400 font-normal">
-                        Durée : {formatDuration(step.sentAt, step.completedAt)}
-                      </p>
-                    )}
-
-                    {step.response && (
-                      <>
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm font-normal ${
-                          isModificationRequested
-                            ? 'bg-amber-50 text-amber-600'
-                            : isStepRejected ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
-                        }`}>
-                          {isModificationRequested
-                            ? <AlertCircle size={14} />
-                            : isStepRejected ? <XCircle size={14} /> : <CheckCircle2 size={14} />
-                          }
-                          {getDecisionLabel(step.response.decision)}
-                        </div>
-
-                        {step.response.rejectionDetails && (
-                          <div className={`rounded-xl p-3.5 mt-2 ${
-                            isModificationRequested
-                              ? 'bg-amber-50 ring-1 ring-amber-200'
-                              : 'bg-red-50 ring-1 ring-red-200'
-                          }`}>
-                            <span className={`inline-block text-[11px] font-normal px-2 py-0.5 rounded mb-1.5 ${
-                              isModificationRequested
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-red-100 text-red-700'
-                            }`}>
-                              {getRejectionCategoryLabel(step.response.rejectionDetails.category)}
-                            </span>
-                            <p className={`text-[13px] leading-relaxed ${
-                              isModificationRequested ? 'text-amber-800' : 'text-red-800'
-                            }`}>
-                              {step.response.rejectionDetails.reason}
-                            </p>
-                          </div>
-                        )}
-
-                        {step.response.generalComment && (
-                          <div className="bg-neutral-50 rounded-xl p-3.5 mt-2">
-                            <p className="text-[13px] text-neutral-600 italic leading-relaxed">
-                              "{step.response.generalComment}"
-                            </p>
-                          </div>
-                        )}
-
-                        {step.response.annotations.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-normal">
-                            <MessageSquare size={12} />
-                            {step.response.annotations.length} annotation{step.response.annotations.length > 1 ? 's' : ''}
-                          </div>
-                        )}
-
-                        {step.response.signature && (
-                          <div className="inline-block mt-2 p-3 bg-white border border-neutral-200 rounded-xl">
-                            <img src={step.response.signature.image} alt="Signature" className="h-10 sm:h-12" />
-                            <p className="text-[10px] text-neutral-400 mt-1.5 font-normal">
-                              Signé le {formatDate(step.response.signature.timestamp)}
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
 
           {/* Pending steps */}
