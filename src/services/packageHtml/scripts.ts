@@ -2141,6 +2141,9 @@ async function syncToCloud() {
 
 function updateSyncStatus(status, message) {
   var container = document.getElementById('syncStatusContainer');
+  var successMsg = document.getElementById('syncSuccessMessage');
+  var fallback = document.getElementById('syncFallback');
+
   if (!container) return;
 
   var syncStatus = document.getElementById('syncStatus');
@@ -2152,14 +2155,23 @@ function updateSyncStatus(status, message) {
     container.className = 'sync-status syncing';
     syncStatus.innerHTML = '<span class="sync-spinner"></span> Synchronisation...';
     syncMessage.textContent = 'Envoi en cours vers DocJourney';
+    // Hide both until we know the result
+    if (successMsg) successMsg.style.display = 'none';
+    if (fallback) fallback.style.display = 'none';
   } else if (status === 'success') {
     container.className = 'sync-status success';
     syncStatus.innerHTML = '\\u2713 Synchronis\\u00e9';
     syncMessage.textContent = 'Votre r\\u00e9ponse a \\u00e9t\\u00e9 transmise automatiquement';
+    // Show success message, hide download fallback
+    if (successMsg) successMsg.style.display = 'block';
+    if (fallback) fallback.style.display = 'none';
   } else if (status === 'error') {
     container.className = 'sync-status error';
     syncStatus.innerHTML = '\\u2717 Sync \\u00e9chou\\u00e9e';
     syncMessage.textContent = message || 'Veuillez envoyer le fichier manuellement par email';
+    // Show download fallback on error
+    if (successMsg) successMsg.style.display = 'none';
+    if (fallback) fallback.style.display = 'block';
   } else {
     container.style.display = 'none';
   }

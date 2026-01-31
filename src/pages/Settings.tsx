@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, CheckCircle2, Trash2, AlertCircle, Database, Shield, Bell, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock } from 'lucide-react';
+import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
-import { requestNotificationPermission } from '../services/reminderService';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup } from '../services/backupService';
-import { testFirebaseConnection, isSyncConfigured } from '../services/firebaseSyncService';
+import { testFirebaseConnection } from '../services/firebaseSyncService';
 
-type TabId = 'general' | 'models' | 'data' | 'about';
+type TabId = 'services' | 'models' | 'data' | 'about';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: 'general', label: 'Général', icon: <User size={15} /> },
+  { id: 'services', label: 'Services', icon: <Mail size={15} /> },
   { id: 'models', label: 'Modèles', icon: <Layout size={15} /> },
   { id: 'data', label: 'Données', icon: <Database size={15} /> },
   { id: 'about', label: 'À propos', icon: <Shield size={15} /> },
@@ -25,18 +24,9 @@ export default function Settings() {
   });
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('general');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [organization, setOrganization] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('services');
   const [stats, setStats] = useState({ docs: 0, workflows: 0, participants: 0, activities: 0 });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [browserNotifications, setBrowserNotifications] = useState(false);
-  const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(14);
-  const [reminderAdvanceDays, setReminderAdvanceDays] = useState(3);
-  const [reminderSaved, setReminderSaved] = useState(false);
   const [emailjsServiceId, setEmailjsServiceId] = useState('');
   const [emailjsTemplateId, setEmailjsTemplateId] = useState('');
   const [emailjsPublicKey, setEmailjsPublicKey] = useState('');
@@ -57,13 +47,6 @@ export default function Settings() {
 
   useEffect(() => {
     if (!loading) {
-      setName(settings.ownerName);
-      setEmail(settings.ownerEmail);
-      setOrganization(settings.ownerOrganization || '');
-      setRemindersEnabled(settings.remindersEnabled ?? false);
-      setBrowserNotifications(settings.browserNotificationsEnabled ?? false);
-      setDefaultDeadlineDays(settings.defaultDeadlineDays ?? 14);
-      setReminderAdvanceDays(settings.reminderAdvanceDays ?? 3);
       setEmailjsServiceId(settings.emailjsServiceId ?? '');
       setEmailjsTemplateId(settings.emailjsTemplateId ?? '');
       setEmailjsPublicKey(settings.emailjsPublicKey ?? '');
@@ -97,30 +80,6 @@ export default function Settings() {
       });
     })();
   }, []);
-
-  const handleSave = async () => {
-    await updateSettings({
-      ownerName: name,
-      ownerEmail: email,
-      ownerOrganization: organization,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
-
-  const handleSaveReminders = async () => {
-    if (browserNotifications) {
-      await requestNotificationPermission();
-    }
-    await updateSettings({
-      remindersEnabled: remindersEnabled,
-      browserNotificationsEnabled: browserNotifications,
-      defaultDeadlineDays: defaultDeadlineDays,
-      reminderAdvanceDays: reminderAdvanceDays,
-    });
-    setReminderSaved(true);
-    setTimeout(() => setReminderSaved(false), 3000);
-  };
 
   const handleSaveEmail = async () => {
     await updateSettings({
@@ -270,7 +229,7 @@ export default function Settings() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl sm:text-3xl font-medium text-neutral-900 tracking-tight">Paramètres</h1>
-        <p className="text-sm text-neutral-500 mt-1">Configuration de votre profil et de l'application</p>
+        <p className="text-sm text-neutral-500 mt-1">Configuration des services et de l'application</p>
       </div>
 
       {/* Tabs */}
@@ -296,151 +255,9 @@ export default function Settings() {
       {/* Tab content */}
       <div className="space-y-6 animate-fade-in" key={activeTab}>
 
-        {/* ====== GÉNÉRAL ====== */}
-        {activeTab === 'general' && (
+        {/* ====== SERVICES ====== */}
+        {activeTab === 'services' && (
           <>
-            {/* Profile */}
-            <div className="card p-5 sm:p-6 space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-900 flex items-center justify-center flex-shrink-0">
-                  <User size={16} className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-medium text-neutral-900">Profil du propriétaire</h2>
-                  <p className="text-xs text-neutral-400 mt-0.5">Identité de l'initiateur des circuits de validation</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                <div>
-                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
-                    Nom complet <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="input"
-                    placeholder="Ex: Pame Kouassi"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
-                    Email <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="input"
-                    placeholder="Ex: pame@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
-                    Organisation
-                  </label>
-                  <input
-                    type="text"
-                    value={organization}
-                    onChange={e => setOrganization(e.target.value)}
-                    className="input"
-                    placeholder="Ex: CRMC"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 pt-1">
-                <button onClick={handleSave} disabled={!name || !email} className="btn-primary">
-                  <Save size={15} />
-                  Enregistrer
-                </button>
-                {saved && (
-                  <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-normal animate-fade-in">
-                    <CheckCircle2 size={16} />
-                    Enregistré
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Reminders */}
-            <div className="card p-5 sm:p-6 space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-                  <Bell size={16} className="text-amber-600" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-medium text-neutral-900">Rappels</h2>
-                  <p className="text-xs text-neutral-400 mt-0.5">Notifications et échéances</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={remindersEnabled}
-                    onChange={e => setRemindersEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                  />
-                  <span className="text-sm font-normal text-neutral-700">Activer les rappels automatiques</span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={browserNotifications}
-                    onChange={e => setBrowserNotifications(e.target.checked)}
-                    className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                  />
-                  <span className="text-sm font-normal text-neutral-700">Notifications navigateur</span>
-                </label>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-normal text-neutral-500 mb-1.5">
-                      Échéance par défaut (jours)
-                    </label>
-                    <input
-                      type="number"
-                      value={defaultDeadlineDays}
-                      onChange={e => setDefaultDeadlineDays(Number(e.target.value))}
-                      min={1}
-                      max={365}
-                      className="input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-normal text-neutral-500 mb-1.5">
-                      Rappel avant échéance (jours)
-                    </label>
-                    <input
-                      type="number"
-                      value={reminderAdvanceDays}
-                      onChange={e => setReminderAdvanceDays(Number(e.target.value))}
-                      min={1}
-                      max={30}
-                      className="input"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 pt-1">
-                <button onClick={handleSaveReminders} className="btn-primary btn-sm">
-                  <Save size={14} /> Enregistrer
-                </button>
-                {reminderSaved && (
-                  <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-normal animate-fade-in">
-                    <CheckCircle2 size={16} /> Enregistré
-                  </span>
-                )}
-              </div>
-            </div>
-
             {/* EmailJS */}
             <div className="card p-5 sm:p-6 space-y-5">
               <div className="flex items-center gap-3">

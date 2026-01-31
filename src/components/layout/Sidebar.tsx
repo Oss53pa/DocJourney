@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileUp, Archive, Settings, Activity,
-  FolderOpen, Users, X, Shield
+  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2
 } from 'lucide-react';
 import { getNewActivityCount } from '../../services/activityService';
+import { useSettings } from '../../hooks/useSettings';
+import { requestNotificationPermission } from '../../services/reminderService';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
@@ -22,6 +24,7 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
+  const { settings, loading, updateSettings } = useSettings();
   const [activityBadge, setActivityBadge] = useState(0);
   const lastVisitRef = useRef<Date>(
     (() => {
@@ -29,6 +32,47 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       return stored ? new Date(stored) : new Date();
     })()
   );
+
+  // Profile state
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [organization, setOrganization] = useState('');
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [browserNotifications, setBrowserNotifications] = useState(false);
+  const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(14);
+  const [reminderAdvanceDays, setReminderAdvanceDays] = useState(3);
+  const [saved, setSaved] = useState(false);
+
+  // Load settings
+  useEffect(() => {
+    if (!loading) {
+      setName(settings.ownerName);
+      setEmail(settings.ownerEmail);
+      setOrganization(settings.ownerOrganization || '');
+      setRemindersEnabled(settings.remindersEnabled ?? false);
+      setBrowserNotifications(settings.browserNotificationsEnabled ?? false);
+      setDefaultDeadlineDays(settings.defaultDeadlineDays ?? 14);
+      setReminderAdvanceDays(settings.reminderAdvanceDays ?? 3);
+    }
+  }, [settings, loading]);
+
+  const handleSaveProfile = async () => {
+    if (browserNotifications) {
+      await requestNotificationPermission();
+    }
+    await updateSettings({
+      ownerName: name,
+      ownerEmail: email,
+      ownerOrganization: organization,
+      remindersEnabled: remindersEnabled,
+      browserNotificationsEnabled: browserNotifications,
+      defaultDeadlineDays: defaultDeadlineDays,
+      reminderAdvanceDays: reminderAdvanceDays,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
 
   // Track when user visits the activity page
   useEffect(() => {
@@ -131,6 +175,135 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             );
           })}
         </nav>
+
+        {/* Profile Section */}
+        <div className="border-t border-neutral-100 flex-shrink-0">
+          <div className="px-3 pt-3">
+            <button
+              onClick={() => setProfileExpanded(!profileExpanded)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-normal transition-all duration-200 hover:bg-neutral-100 text-neutral-700"
+            >
+              <div className="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center flex-shrink-0">
+                <User size={14} className="text-white" />
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium text-neutral-900 truncate">
+                  {name || 'Configurer le profil'}
+                </p>
+                <p className="text-[11px] text-neutral-400 truncate">
+                  {email || 'Propriétaire'}
+                </p>
+              </div>
+              {profileExpanded ? <ChevronUp size={16} className="text-neutral-400" /> : <ChevronDown size={16} className="text-neutral-400" />}
+            </button>
+
+            {/* Profile Expanded Panel */}
+            {profileExpanded && (
+              <div className="mt-2 mx-1 p-4 bg-neutral-50 rounded-xl space-y-4 animate-fade-in">
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-500 mb-1">Nom complet</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    placeholder="Votre nom"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-500 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    placeholder="votre@email.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-500 mb-1">Organisation</label>
+                  <input
+                    type="text"
+                    value={organization}
+                    onChange={e => setOrganization(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                    placeholder="Votre organisation"
+                  />
+                </div>
+
+                {/* Reminders inside profile */}
+                <div className="pt-3 border-t border-neutral-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bell size={14} className="text-amber-500" />
+                    <span className="text-[11px] font-medium text-neutral-700">Rappels</span>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer mb-2">
+                    <input
+                      type="checkbox"
+                      checked={remindersEnabled}
+                      onChange={e => setRemindersEnabled(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-[12px] text-neutral-600">Rappels automatiques</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer mb-3">
+                    <input
+                      type="checkbox"
+                      checked={browserNotifications}
+                      onChange={e => setBrowserNotifications(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    />
+                    <span className="text-[12px] text-neutral-600">Notifications navigateur</span>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-neutral-500 mb-1">Échéance (jours)</label>
+                      <input
+                        type="number"
+                        value={defaultDeadlineDays}
+                        onChange={e => setDefaultDeadlineDays(Number(e.target.value))}
+                        min={1}
+                        max={365}
+                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-neutral-500 mb-1">Rappel avant (jours)</label>
+                      <input
+                        type="number"
+                        value={reminderAdvanceDays}
+                        onChange={e => setReminderAdvanceDays(Number(e.target.value))}
+                        min={1}
+                        max={30}
+                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={!name || !email}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white text-xs rounded-lg hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save size={12} />
+                    Enregistrer
+                  </button>
+                  {saved && (
+                    <span className="flex items-center gap-1 text-[11px] text-emerald-600">
+                      <CheckCircle2 size={12} />
+                      OK
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Settings + Footer */}
         <div className="border-t border-neutral-100 flex-shrink-0">

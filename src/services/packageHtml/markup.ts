@@ -596,15 +596,16 @@ function downloadScreenHTML(data: PackageData): string {
       ${hasSyncEnabled ? `
       <div class="sync-success-message" id="syncSuccessMessage" style="display:none">
         <div class="sync-success-icon">\u2713</div>
-        <p>Votre r\u00e9ponse a \u00e9t\u00e9 transmise automatiquement.</p>
-        <p class="sync-success-hint">Vous pouvez fermer cette fen\u00eatre.</p>
+        <p>Votre réponse a été transmise automatiquement.</p>
+        <p class="sync-success-hint">Vous pouvez fermer cette fenêtre.</p>
       </div>
-      <div class="sync-fallback" id="syncFallback">
+      <div class="sync-fallback" id="syncFallback" style="display:none">
+        <p class="sync-fallback-hint">La synchronisation automatique a échoué. Veuillez envoyer le fichier manuellement :</p>
       ` : ''}
-      <button class="btn btn-primary btn-lg" onclick="downloadReturn()">T\u00e9l\u00e9charger le fichier retour</button>
-      <button class="btn btn-secondary btn-lg dl-receipt-btn" onclick="downloadReceipt()">T\u00e9l\u00e9charger le re\u00e7u (PDF)</button>
+      <button class="btn btn-primary btn-lg" onclick="downloadReturn()">Télécharger le fichier retour</button>
+      <button class="btn btn-secondary btn-lg dl-receipt-btn" onclick="downloadReceipt()">Télécharger le reçu (PDF)</button>
       <div class="dl-email-row">
-        Envoyer \u00e0 <strong id="returnEmail">${escapeHtml(data.owner.email)}</strong>
+        Envoyer à <strong id="returnEmail">${escapeHtml(data.owner.email)}</strong>
         <button class="copy-email-btn" onclick="copyEmail()">Copier</button>
       </div>
       ${hasSyncEnabled ? `

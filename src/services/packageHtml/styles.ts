@@ -371,6 +371,7 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
 
 /* Sync fallback (manual download) */
 .sync-fallback{width:100%}
+.sync-fallback-hint{font-size:13px;color:#dc2626;margin:0 0 12px 0;text-align:center}
 
 /* ===== MOBILE DRAWER ===== */
 .mobile-drawer{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.1);z-index:200;max-height:80vh;transition:transform .3s ease}
