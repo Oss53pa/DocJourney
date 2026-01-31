@@ -97,7 +97,16 @@ export default function Dashboard() {
     setRejected(filtered.filter(d => d.doc.status === 'rejected'));
 
     const activity = await db.activityLog.orderBy('timestamp').reverse().limit(5).toArray();
-    setRecentActivity(activity);
+    // Filter out corrupted entries where description is not a string
+    const validActivity = activity.filter(a => typeof a.description === 'string');
+    setRecentActivity(validActivity);
+
+    // Clean up corrupted entries in background
+    const corruptedIds = activity.filter(a => typeof a.description !== 'string').map(a => a.id);
+    if (corruptedIds.length > 0) {
+      console.warn('Cleaning up corrupted activity entries:', corruptedIds);
+      await Promise.all(corruptedIds.map(id => db.activityLog.delete(id)));
+    }
 
     setLoading(false);
   }, [search]);
