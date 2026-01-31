@@ -83,16 +83,36 @@ export async function initializeDB() {
       emailjsServiceId: 'service_fptbtnx',
       emailjsTemplateId: 'template_ih65oh8',
       emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
+      // Firebase Sync configuration (préconfigurée)
+      firebaseSyncEnabled: true,
+      firebaseApiKey: 'AIzaSyCLgse5mcDpFGLAG4eJf9HVqyd-1Uxvprw',
+      firebaseDatabaseURL: 'https://docjourney-default-rtdb.europe-west1.firebasedatabase.app',
+      firebaseProjectId: 'docjourney',
     });
   } else {
-    // Migration: ajouter les valeurs EmailJS si elles n'existent pas
+    // Migration: ajouter les valeurs manquantes
     const existingSettings = await db.settings.get('default');
-    if (existingSettings && !existingSettings.emailjsServiceId) {
-      await db.settings.update('default', {
-        emailjsServiceId: 'service_fptbtnx',
-        emailjsTemplateId: 'template_ih65oh8',
-        emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
-      });
+    if (existingSettings) {
+      const updates: Partial<AppSettings> = {};
+
+      // Migration EmailJS
+      if (!existingSettings.emailjsServiceId) {
+        updates.emailjsServiceId = 'service_fptbtnx';
+        updates.emailjsTemplateId = 'template_ih65oh8';
+        updates.emailjsPublicKey = 'UqTT-gaCEOyELzhy_';
+      }
+
+      // Migration Firebase Sync
+      if (existingSettings.firebaseSyncEnabled === undefined) {
+        updates.firebaseSyncEnabled = true;
+        updates.firebaseApiKey = 'AIzaSyCLgse5mcDpFGLAG4eJf9HVqyd-1Uxvprw';
+        updates.firebaseDatabaseURL = 'https://docjourney-default-rtdb.europe-west1.firebasedatabase.app';
+        updates.firebaseProjectId = 'docjourney';
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await db.settings.update('default', updates);
+      }
     }
   }
 
