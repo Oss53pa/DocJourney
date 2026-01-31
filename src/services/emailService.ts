@@ -1,6 +1,7 @@
 import emailjs from '@emailjs/browser';
 import type { DocJourneyDocument, Workflow, AppSettings } from '../types';
-import { getRoleLabel, getRoleAction, formatDate } from '../utils';
+import { getRoleLabel, getRoleAction, formatDate, generateId } from '../utils';
+import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from './firebaseSyncService';
 
 export function generateEmailSubject(
   doc: DocJourneyDocument,
@@ -16,7 +17,8 @@ export function generateEmailTemplate(
   doc: DocJourneyDocument,
   workflow: Workflow,
   stepIndex: number,
-  syncEnabled: boolean = false
+  syncEnabled: boolean = false,
+  hostedUrl?: string
 ): string {
   const step = workflow.steps[stepIndex];
   const participant = step.participant;
@@ -90,7 +92,60 @@ export function generateEmailTemplate(
       </table>
     </div>
 
-    <!-- Attachment Info -->
+    ${hostedUrl ? `
+    <!-- CTA Button - Hosted Version -->
+    <div style="text-align:center;margin:0 0 28px">
+      <a href="${hostedUrl}" target="_blank" style="display:inline-block;background:#171717;color:#ffffff;font-size:16px;font-weight:500;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:0.5px">
+        &#128196; Ouvrir la page de validation
+      </a>
+      <p style="font-size:12px;color:#737373;margin:12px 0 0;line-height:1.6">
+        Cliquez sur le bouton ci-dessus pour accéder à la page de validation
+      </p>
+    </div>
+
+    <!-- Steps - Hosted Version -->
+    <div style="border-top:1px solid #e5e5e5;padding-top:24px;margin-top:8px">
+      <p style="font-size:11px;font-weight:500;color:#a3a3a3;text-transform:uppercase;letter-spacing:2px;margin:0 0 16px">Comment procéder</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%">
+        <tr>
+          <td style="width:28px;vertical-align:top;padding-bottom:12px">
+            <div style="width:24px;height:24px;background:#171717;border-radius:50%;color:#fff;font-size:11px;font-weight:400;text-align:center;line-height:24px">1</div>
+          </td>
+          <td style="padding:2px 0 12px 10px">
+            <p style="font-size:13px;color:#404040;margin:0;font-weight:400">Cliquez sur le bouton ci-dessus</p>
+            <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">La page de validation s'ouvrira dans votre navigateur</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="width:28px;vertical-align:top;padding-bottom:12px">
+            <div style="width:24px;height:24px;background:#171717;border-radius:50%;color:#fff;font-size:11px;font-weight:400;text-align:center;line-height:24px">2</div>
+          </td>
+          <td style="padding:2px 0 12px 10px">
+            <p style="font-size:13px;color:#404040;margin:0;font-weight:400">Consultez le document et ajoutez vos annotations</p>
+            <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">Vous pouvez voir les validations précédentes</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="width:28px;vertical-align:top">
+            <div style="width:24px;height:24px;background:#171717;border-radius:50%;color:#fff;font-size:11px;font-weight:400;text-align:center;line-height:24px">3</div>
+          </td>
+          <td style="padding:2px 0 0 10px">
+            <p style="font-size:13px;color:#404040;margin:0;font-weight:400">Prenez votre décision</p>
+            <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">Cliquez sur Approuver ou Rejeter</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:12px 0 0">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px">
+              <p style="font-size:13px;color:#166534;margin:0;font-weight:500">&#10003; Votre réponse sera envoyée automatiquement</p>
+              <p style="font-size:12px;color:#15803d;margin:4px 0 0">Pas besoin de renvoyer de fichier par email !</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    ` : `
+    <!-- Attachment Info - Fallback Version -->
     <div style="text-align:center;margin:0 0 28px">
       <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:24px 20px">
         <div style="font-size:32px;margin-bottom:8px">&#128230;</div>
@@ -103,7 +158,7 @@ export function generateEmailTemplate(
       </div>
     </div>
 
-    <!-- Steps -->
+    <!-- Steps - Attachment Version -->
     <div style="border-top:1px solid #e5e5e5;padding-top:24px;margin-top:8px">
       <p style="font-size:11px;font-weight:500;color:#a3a3a3;text-transform:uppercase;letter-spacing:2px;margin:0 0 16px">Comment procéder</p>
       <table cellpadding="0" cellspacing="0" style="width:100%">
@@ -156,6 +211,7 @@ export function generateEmailTemplate(
         `}
       </table>
     </div>
+    `}
   </div>
 
   <!-- Footer -->
@@ -207,7 +263,8 @@ export async function sendEmailViaEmailJS(
   doc: DocJourneyDocument,
   workflow: Workflow,
   stepIndex: number,
-  settings: AppSettings
+  settings: AppSettings,
+  htmlPackage?: string
 ): Promise<void> {
   const validation = validateEmailJSConfig(settings);
   if (!validation.valid) {
@@ -215,11 +272,42 @@ export async function sendEmailViaEmailJS(
   }
 
   // Check if Firebase sync is enabled
-  const syncEnabled = !!(settings.firebaseSyncEnabled && settings.firebaseApiKey && settings.firebaseDatabaseURL && settings.firebaseProjectId);
+  const syncEnabled = isSyncConfigured(settings);
+  const firebaseConfig = getFirebaseConfig(settings);
 
   const step = workflow.steps[stepIndex];
   const subject = generateEmailSubject(doc, workflow, stepIndex);
-  const htmlContent = generateEmailTemplate(doc, workflow, stepIndex, syncEnabled);
+
+  // Try to upload the HTML package to Firebase Storage if sync is enabled and we have the HTML
+  let hostedUrl: string | undefined;
+
+  if (syncEnabled && firebaseConfig && htmlPackage) {
+    try {
+      const packageId = generateId();
+
+      // Upload to Firebase Storage
+      const uploadResult = await uploadPackageToStorage(
+        htmlPackage,
+        packageId,
+        step.participant.name,
+        doc.name,
+        firebaseConfig
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        hostedUrl = uploadResult.url;
+        console.log('Package uploaded successfully:', hostedUrl);
+      } else {
+        console.warn('Failed to upload package to storage:', uploadResult.error);
+        // Continue without hosted URL - will fall back to attachment instructions
+      }
+    } catch (error) {
+      console.warn('Error uploading package to storage:', error);
+      // Continue without hosted URL - will fall back to attachment instructions
+    }
+  }
+
+  const htmlContent = generateEmailTemplate(doc, workflow, stepIndex, syncEnabled, hostedUrl);
 
   const templateParams: Record<string, string> = {
     to_email: step.participant.email,
@@ -247,6 +335,7 @@ export async function sendEmailViaEmailJS(
     subject: templateParams.subject,
     reply_to: templateParams.reply_to,
     message_html_length: templateParams.message_html?.length || 0,
+    hostedUrl: hostedUrl || 'none (attachment mode)',
   });
 
   try {

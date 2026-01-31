@@ -16,6 +16,30 @@ import type { ReturnFileData, FirebaseSyncConfig } from '../types';
 import { processReturn } from './workflowService';
 import { logActivity } from './activityService';
 
+// Firebase Storage types
+interface FirebaseStorage {
+  ref: (path?: string) => StorageReference;
+}
+
+interface StorageReference {
+  child: (path: string) => StorageReference;
+  put: (data: Blob | Uint8Array | ArrayBuffer, metadata?: StorageMetadata) => UploadTask;
+  getDownloadURL: () => Promise<string>;
+}
+
+interface StorageMetadata {
+  contentType?: string;
+  customMetadata?: Record<string, string>;
+}
+
+interface UploadTask {
+  then: (onFulfilled: (snapshot: UploadTaskSnapshot) => void, onRejected?: (error: Error) => void) => Promise<void>;
+}
+
+interface UploadTaskSnapshot {
+  ref: StorageReference;
+}
+
 // Firebase SDK types (loaded dynamically)
 interface FirebaseApp {
   name: string;
@@ -43,6 +67,7 @@ interface DataSnapshot {
 // Global Firebase instances
 let firebaseApp: FirebaseApp | null = null;
 let firebaseDb: FirebaseDatabase | null = null;
+let firebaseStorage: FirebaseStorage | null = null;
 let currentListener: { ref: DatabaseReference; channelId: string } | null = null;
 
 /**
@@ -74,6 +99,7 @@ export async function initializeFirebase(config: FirebaseSyncConfig): Promise<bo
       initializeApp: (config: object, name?: string) => FirebaseApp;
       app: (name?: string) => FirebaseApp;
       database: (app?: FirebaseApp) => FirebaseDatabase;
+      storage: (app?: FirebaseApp) => FirebaseStorage;
       auth: (app?: FirebaseApp) => { signInAnonymously: () => Promise<unknown> };
     } }).firebase;
 
@@ -81,15 +107,17 @@ export async function initializeFirebase(config: FirebaseSyncConfig): Promise<bo
     try {
       firebaseApp = firebase.app('docjourney-sync');
     } catch {
-      // Initialize new app
+      // Initialize new app with storageBucket
       firebaseApp = firebase.initializeApp({
         apiKey: config.apiKey,
         databaseURL: config.databaseURL,
         projectId: config.projectId,
+        storageBucket: `${config.projectId}.firebasestorage.app`,
       }, 'docjourney-sync');
     }
 
     firebaseDb = firebase.database(firebaseApp);
+    firebaseStorage = firebase.storage(firebaseApp);
 
     // Sign in anonymously
     const auth = firebase.auth(firebaseApp);
@@ -117,6 +145,7 @@ function loadFirebaseSDK(): Promise<void> {
       'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
       'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js',
       'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',
+      'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js',
     ];
 
     let loaded = 0;
@@ -294,6 +323,60 @@ export async function testFirebaseConnection(config: FirebaseSyncConfig): Promis
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Erreur de connexion Firebase',
+    };
+  }
+}
+
+/**
+ * Upload an HTML package to Firebase Storage and return the public URL
+ */
+export async function uploadPackageToStorage(
+  htmlContent: string,
+  packageId: string,
+  participantName: string,
+  documentName: string,
+  config: FirebaseSyncConfig
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    // Initialize Firebase if needed
+    const initialized = await initializeFirebase(config);
+    if (!initialized || !firebaseStorage) {
+      return { success: false, error: 'Impossible d\'initialiser Firebase Storage' };
+    }
+
+    // Create a unique filename
+    const sanitizedDocName = documentName.replace(/[^a-zA-Z0-9]/g, '_');
+    const sanitizedParticipant = participantName.replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `packages/${packageId}/${sanitizedDocName}_${sanitizedParticipant}.html`;
+
+    // Create a blob from the HTML content
+    const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
+
+    // Upload to Firebase Storage
+    const storageRef = firebaseStorage.ref();
+    const fileRef = storageRef.child(filename);
+
+    await new Promise<void>((resolve, reject) => {
+      fileRef.put(blob, {
+        contentType: 'text/html',
+        customMetadata: {
+          packageId,
+          participantName,
+          documentName,
+          createdAt: new Date().toISOString(),
+        },
+      }).then(() => resolve(), reject);
+    });
+
+    // Get the download URL
+    const downloadUrl = await fileRef.getDownloadURL();
+
+    return { success: true, url: downloadUrl };
+  } catch (error) {
+    console.error('Error uploading package to storage:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erreur lors de l\'upload',
     };
   }
 }

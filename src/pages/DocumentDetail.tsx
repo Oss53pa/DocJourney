@@ -58,6 +58,7 @@ export default function DocumentDetail() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailHtml, setEmailHtml] = useState('');
+  const [generatedPackageHtml, setGeneratedPackageHtml] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showCloudModal, setShowCloudModal] = useState(false);
   const [blockageInfo, setBlockageInfo] = useState<BlockedWorkflowInfo | null>(null);
@@ -121,7 +122,10 @@ export default function DocumentDetail() {
       const filename = `${doc.name.replace(/\.[^.]+$/, '')}_${step.participant.name.replace(/\s+/g, '_')}.html`;
       downloadFile(html, filename);
 
-      // Generate email template preview
+      // Store the generated package for potential email upload
+      setGeneratedPackageHtml(html);
+
+      // Generate email template preview (without hosted URL for now, it will be generated on send)
       const email = generateEmailTemplate(doc, workflow, workflow.currentStepIndex);
       setEmailHtml(email);
       setShowEmailModal(true);
@@ -884,9 +888,10 @@ export default function DocumentDetail() {
                   if (!doc || !workflow) return;
                   setSendingEmail(true);
                   try {
-                    await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings);
+                    await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings, generatedPackageHtml);
                     showMsg(`Email envoyé à ${workflow.steps[workflow.currentStepIndex].participant.name}`);
                     setShowEmailModal(false);
+                    setGeneratedPackageHtml(''); // Clear after successful send
                   } catch (err) {
                     showMsg(err instanceof Error ? err.message : 'Erreur lors de l\'envoi', 'error');
                   } finally {

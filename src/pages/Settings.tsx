@@ -542,12 +542,12 @@ export default function Settings() {
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
                 <p className="text-xs text-orange-800 leading-relaxed">
                   <strong>Fonctionnement :</strong> Quand un participant approuve/rejette un document, sa réponse est
-                  automatiquement synchronisée vers DocJourney. Plus besoin d'attendre un email avec le fichier retour !
+                  automatiquement synchronisée vers DocJourney. L'email contient un lien cliquable vers la page de validation hébergée !
                 </p>
                 <p className="text-xs text-orange-700 mt-2 leading-relaxed">
                   <strong>Configuration requise :</strong> Créez un projet gratuit sur{' '}
                   <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">Firebase Console</a>,
-                  activez "Realtime Database" et "Anonymous Authentication", puis copiez les credentials ci-dessous.
+                  activez <strong>"Realtime Database"</strong>, <strong>"Storage"</strong> (pour héberger les pages) et <strong>"Anonymous Authentication"</strong>, puis copiez les credentials ci-dessous.
                 </p>
               </div>
 
