@@ -218,7 +218,7 @@ export function generateEmailTemplate(
   <div style="background:#f5f5f5;padding:24px 40px;border-radius:0 0 16px 16px;border:1px solid #e5e5e5;border-top:none">
     <p style="font-size:11px;color:#a3a3a3;margin:0;text-align:center">
       Envoyé via <strong>DocJourney</strong> le ${date}
-      <br>Application de workflow documentaire — 100% locale, sans serveur
+      <br>Le voyage du document à travers son circuit de validation
     </p>
   </div>
 </div>
