@@ -337,10 +337,15 @@ export async function uploadPackageToStorage(
   documentName: string,
   config: FirebaseSyncConfig
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  console.log('uploadPackageToStorage called with:', { packageId, participantName, documentName, configProjectId: config.projectId });
+
   try {
     // Initialize Firebase if needed
     const initialized = await initializeFirebase(config);
+    console.log('Firebase initialized:', initialized, 'Storage available:', !!firebaseStorage);
+
     if (!initialized || !firebaseStorage) {
+      console.error('Firebase Storage not available after init');
       return { success: false, error: 'Impossible d\'initialiser Firebase Storage' };
     }
 
@@ -348,14 +353,17 @@ export async function uploadPackageToStorage(
     const sanitizedDocName = documentName.replace(/[^a-zA-Z0-9]/g, '_');
     const sanitizedParticipant = participantName.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `packages/${packageId}/${sanitizedDocName}_${sanitizedParticipant}.html`;
+    console.log('Uploading to:', filename);
 
     // Create a blob from the HTML content
     const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
+    console.log('Blob created, size:', blob.size);
 
     // Upload to Firebase Storage
     const storageRef = firebaseStorage.ref();
     const fileRef = storageRef.child(filename);
 
+    console.log('Starting upload...');
     await new Promise<void>((resolve, reject) => {
       fileRef.put(blob, {
         contentType: 'text/html',
@@ -365,11 +373,19 @@ export async function uploadPackageToStorage(
           documentName,
           createdAt: new Date().toISOString(),
         },
-      }).then(() => resolve(), reject);
+      }).then(() => {
+        console.log('Upload completed');
+        resolve();
+      }, (error) => {
+        console.error('Upload failed:', error);
+        reject(error);
+      });
     });
 
     // Get the download URL
+    console.log('Getting download URL...');
     const downloadUrl = await fileRef.getDownloadURL();
+    console.log('Download URL obtained:', downloadUrl);
 
     return { success: true, url: downloadUrl };
   } catch (error) {

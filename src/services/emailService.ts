@@ -275,6 +275,8 @@ export async function sendEmailViaEmailJS(
   const syncEnabled = isSyncConfigured(settings);
   const firebaseConfig = getFirebaseConfig(settings);
 
+  console.log('sendEmailViaEmailJS - syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig, 'hasHtmlPackage:', !!htmlPackage, 'htmlPackageLength:', htmlPackage?.length || 0);
+
   const step = workflow.steps[stepIndex];
   const subject = generateEmailSubject(doc, workflow, stepIndex);
 
@@ -282,6 +284,7 @@ export async function sendEmailViaEmailJS(
   let hostedUrl: string | undefined;
 
   if (syncEnabled && firebaseConfig && htmlPackage) {
+    console.log('Attempting to upload HTML package to Firebase Storage...');
     try {
       const packageId = generateId();
 
