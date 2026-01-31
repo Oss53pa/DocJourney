@@ -598,6 +598,7 @@ function downloadScreenHTML(data: PackageData): string {
         <div class="sync-success-icon">\u2713</div>
         <p>Votre réponse a été transmise automatiquement.</p>
         <p class="sync-success-hint">Vous pouvez fermer cette fenêtre.</p>
+        <button class="btn btn-secondary dl-receipt-btn" onclick="downloadReceipt()" style="margin-top:12px">Télécharger le reçu (PDF)</button>
       </div>
       <div class="sync-fallback" id="syncFallback" style="display:none">
         <p class="sync-fallback-hint">La synchronisation automatique a échoué. Veuillez envoyer le fichier manuellement :</p>
