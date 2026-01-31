@@ -245,13 +245,13 @@ export async function processRemoteReturn(
       await removeProcessedReturn(channelId, returnId);
 
       // Log the activity
-      await logActivity({
-        type: 'return_imported',
-        workflowId: returnData.workflowId,
-        documentId: returnData.documentId,
-        description: `Retour automatique reçu de ${returnData.participant.name} (sync cloud)`,
-        metadata: { syncSource: 'firebase', returnId },
-      });
+      await logActivity(
+        'return_imported',
+        `Retour automatique reçu de ${returnData.participant.name} (sync cloud)`,
+        returnData.documentId,
+        returnData.workflowId,
+        { syncSource: 'firebase', returnId }
+      );
     }
 
     return result;
