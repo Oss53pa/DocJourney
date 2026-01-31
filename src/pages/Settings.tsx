@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
-import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup } from '../services/backupService';
@@ -564,9 +563,6 @@ export default function Settings() {
                 )}
               </div>
             </div>
-
-            {/* Cloud Connections */}
-            <CloudConnectionsSection />
 
             {/* Danger Zone */}
             <div className="card p-5 sm:p-6 space-y-5 border-red-200">
