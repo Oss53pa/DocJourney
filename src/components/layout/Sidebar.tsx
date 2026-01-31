@@ -123,8 +123,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="flex items-center justify-between px-6 h-[72px] border-b border-neutral-100 flex-shrink-0">
           <div>
             <h1 className="font-brand text-[28px] text-neutral-900 leading-none">DocJourney</h1>
-            <p className="text-[10px] font-normal text-neutral-400 tracking-wider mt-0.5">
-              Le voyage de vos documents
+            <p className="text-[9px] font-normal text-neutral-400 leading-tight mt-1">
+              Le voyage du document à travers<br />son circuit de validation
             </p>
           </div>
           <button

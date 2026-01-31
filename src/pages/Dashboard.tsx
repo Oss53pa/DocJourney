@@ -194,62 +194,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Welcome Hero - shown when no documents */}
+      {/* Welcome - shown when no documents */}
       {showWelcomeHero ? (
-        <div className="relative overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-3xl p-8 sm:p-12 text-white">
-          {/* Background decoration */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-400 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
-          </div>
-
-          <div className="relative z-10 max-w-2xl">
-            <h1 className="font-brand text-4xl sm:text-5xl mb-4">DocJourney</h1>
-            <p className="text-xl sm:text-2xl text-neutral-300 mb-2">
-              Le voyage du document à travers son circuit de validation
-            </p>
-            <p className="text-neutral-400 mb-8 max-w-lg">
-              Simplifiez vos processus de validation documentaire. Créez des circuits personnalisés,
-              suivez l'avancement en temps réel et collectez les signatures électroniques.
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-              <button onClick={() => navigate('/new')} className="inline-flex items-center gap-2 bg-white text-neutral-900 px-6 py-3 rounded-xl font-medium hover:bg-neutral-100 transition-colors">
-                <Plus size={18} />
-                Créer mon premier document
-              </button>
-              <label className="inline-flex items-center gap-2 bg-white/10 text-white px-6 py-3 rounded-xl font-medium hover:bg-white/20 transition-colors cursor-pointer">
-                <Upload size={18} />
-                Importer un retour
-                <input ref={returnFileRef} type="file" accept=".docjourney" className="hidden" onChange={handleReturnImport} />
-              </label>
-            </div>
-
-            {/* Features */}
-            <div className="grid sm:grid-cols-3 gap-6 mt-10 pt-8 border-t border-white/10">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-                  <FileText size={20} />
-                </div>
-                <h3 className="font-medium mb-1">Circuits personnalisés</h3>
-                <p className="text-sm text-neutral-400">Définissez les étapes et les participants de validation</p>
-              </div>
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-                  <Cloud size={20} />
-                </div>
-                <h3 className="font-medium mb-1">Synchronisation auto</h3>
-                <p className="text-sm text-neutral-400">Les retours arrivent automatiquement dans votre app</p>
-              </div>
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mb-3">
-                  <CheckCircle2 size={20} />
-                </div>
-                <h3 className="font-medium mb-1">Signatures électroniques</h3>
-                <p className="text-sm text-neutral-400">Collectez les signatures directement dans le navigateur</p>
-              </div>
-            </div>
-          </div>
+        <div className="bg-neutral-900 rounded-2xl px-8 py-8 text-white">
+          <h1 className="font-brand text-3xl sm:text-4xl mb-2">DocJourney</h1>
+          <p className="text-neutral-400">
+            Le voyage du document à travers son circuit de validation
+          </p>
         </div>
       ) : (
         /* Regular greeting header */
