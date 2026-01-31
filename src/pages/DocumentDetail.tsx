@@ -18,6 +18,8 @@ import { generatePackage, downloadFile, parseReturnFile } from '../services/pack
 import { createWorkflow, processReturn, cancelWorkflow, type StepConfig } from '../services/workflowService';
 import { generateValidationReport, downloadReport, getReport } from '../services/reportService';
 import { generateEmailTemplate, copyToClipboard, sendEmailViaEmailJS, isEmailJSConfigured } from '../services/emailService';
+import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from '../services/firebaseSyncService';
+import { generateId } from '../utils';
 import { generateMailtoLink } from '../services/reminderService';
 import { useSettings } from '../hooks/useSettings';
 import { useWorkflowTemplates } from '../hooks/useWorkflowTemplates';
@@ -59,6 +61,7 @@ export default function DocumentDetail() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailHtml, setEmailHtml] = useState('');
   const [generatedPackageHtml, setGeneratedPackageHtml] = useState('');
+  const [generatedHostedUrl, setGeneratedHostedUrl] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showCloudModal, setShowCloudModal] = useState(false);
   const [blockageInfo, setBlockageInfo] = useState<BlockedWorkflowInfo | null>(null);
@@ -125,8 +128,36 @@ export default function DocumentDetail() {
       // Store the generated package for potential email upload
       setGeneratedPackageHtml(html);
 
-      // Generate email template preview (without hosted URL for now, it will be generated on send)
-      const email = generateEmailTemplate(doc, workflow, workflow.currentStepIndex);
+      // Try to upload to Firebase Storage if sync is enabled
+      const syncEnabled = isSyncConfigured(settings);
+      const firebaseConfig = getFirebaseConfig(settings);
+      let hostedUrl: string | undefined;
+
+      if (syncEnabled && firebaseConfig) {
+        try {
+          const packageId = generateId();
+          const uploadResult = await uploadPackageToStorage(
+            html,
+            packageId,
+            step.participant.name,
+            doc.name,
+            firebaseConfig
+          );
+          if (uploadResult.success && uploadResult.url) {
+            hostedUrl = uploadResult.url;
+            setGeneratedHostedUrl(uploadResult.url);
+            console.log('Package uploaded for preview:', hostedUrl);
+          }
+        } catch (error) {
+          console.warn('Error uploading package for preview:', error);
+          setGeneratedHostedUrl('');
+        }
+      } else {
+        setGeneratedHostedUrl('');
+      }
+
+      // Generate email template preview with hosted URL if available
+      const email = generateEmailTemplate(doc, workflow, workflow.currentStepIndex, syncEnabled, hostedUrl);
       setEmailHtml(email);
       setShowEmailModal(true);
 
@@ -888,10 +919,11 @@ export default function DocumentDetail() {
                   if (!doc || !workflow) return;
                   setSendingEmail(true);
                   try {
-                    await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings, generatedPackageHtml);
+                    await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings, generatedPackageHtml, generatedHostedUrl);
                     showMsg(`Email envoyé à ${workflow.steps[workflow.currentStepIndex].participant.name}`);
                     setShowEmailModal(false);
                     setGeneratedPackageHtml(''); // Clear after successful send
+                    setGeneratedHostedUrl(''); // Clear hosted URL too
                   } catch (err) {
                     showMsg(err instanceof Error ? err.message : 'Erreur lors de l\'envoi', 'error');
                   } finally {

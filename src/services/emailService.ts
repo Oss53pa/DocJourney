@@ -264,7 +264,8 @@ export async function sendEmailViaEmailJS(
   workflow: Workflow,
   stepIndex: number,
   settings: AppSettings,
-  htmlPackage?: string
+  htmlPackage?: string,
+  existingHostedUrl?: string
 ): Promise<void> {
   const validation = validateEmailJSConfig(settings);
   if (!validation.valid) {
@@ -275,15 +276,16 @@ export async function sendEmailViaEmailJS(
   const syncEnabled = isSyncConfigured(settings);
   const firebaseConfig = getFirebaseConfig(settings);
 
-  console.log('sendEmailViaEmailJS - syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig, 'hasHtmlPackage:', !!htmlPackage, 'htmlPackageLength:', htmlPackage?.length || 0);
+  console.log('sendEmailViaEmailJS - syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig, 'hasHtmlPackage:', !!htmlPackage, 'existingHostedUrl:', existingHostedUrl || 'none');
 
   const step = workflow.steps[stepIndex];
   const subject = generateEmailSubject(doc, workflow, stepIndex);
 
-  // Try to upload the HTML package to Firebase Storage if sync is enabled and we have the HTML
-  let hostedUrl: string | undefined;
+  // Use existing hosted URL or try to upload
+  let hostedUrl: string | undefined = existingHostedUrl;
 
-  if (syncEnabled && firebaseConfig && htmlPackage) {
+  // Only upload if we don't have a hosted URL yet and sync is enabled
+  if (!hostedUrl && syncEnabled && firebaseConfig && htmlPackage) {
     console.log('Attempting to upload HTML package to Firebase Storage...');
     try {
       const packageId = generateId();
