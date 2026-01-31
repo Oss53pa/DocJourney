@@ -14,8 +14,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
   // Firebase Sync configuration (préconfigurée)
   firebaseSyncEnabled: true,
-  firebaseApiKey: 'AIzaSyCqyTjJVgOZC_ThkP2ckjCOPQ9XZWjv35Q',
-  firebaseDatabaseURL: 'https://docjourney-default-rtdb.firebaseio.com',
+  firebaseApiKey: 'AIzaSyCLgse5mcDpFGLAG4eJf9HVqyd-1Uxvprw',
+  firebaseDatabaseURL: 'https://docjourney-default-rtdb.europe-west1.firebasedatabase.app',
   firebaseProjectId: 'docjourney',
 };
 
