@@ -103,16 +103,21 @@ export async function initializeFirebase(config: FirebaseSyncConfig): Promise<bo
       auth: (app?: FirebaseApp) => { signInAnonymously: () => Promise<unknown> };
     } }).firebase;
 
+    // Trim config values to avoid whitespace issues
+    const apiKey = config.apiKey.trim();
+    const databaseURL = config.databaseURL.trim();
+    const projectId = config.projectId.trim();
+
     // Check if already initialized
     try {
       firebaseApp = firebase.app('docjourney-sync');
     } catch {
       // Initialize new app with storageBucket
       firebaseApp = firebase.initializeApp({
-        apiKey: config.apiKey,
-        databaseURL: config.databaseURL,
-        projectId: config.projectId,
-        storageBucket: `${config.projectId}.firebasestorage.app`,
+        apiKey,
+        databaseURL,
+        projectId,
+        storageBucket: `${projectId}.firebasestorage.app`,
       }, 'docjourney-sync');
     }
 
@@ -291,9 +296,9 @@ export function getFirebaseConfig(settings: {
 
   return {
     enabled: true,
-    apiKey: settings.firebaseApiKey!,
-    databaseURL: settings.firebaseDatabaseURL!,
-    projectId: settings.firebaseProjectId!,
+    apiKey: settings.firebaseApiKey!.trim(),
+    databaseURL: settings.firebaseDatabaseURL!.trim(),
+    projectId: settings.firebaseProjectId!.trim(),
   };
 }
 
