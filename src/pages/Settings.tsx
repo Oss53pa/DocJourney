@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock } from 'lucide-react';
+import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock, FolderOpen } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
 import { useSettings } from '../hooks/useSettings';
@@ -43,6 +43,8 @@ export default function Settings() {
   const [firebaseSaved, setFirebaseSaved] = useState(false);
   const [firebaseTesting, setFirebaseTesting] = useState(false);
   const [firebaseTestResult, setFirebaseTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  // Backup to folder
+  const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -561,6 +563,117 @@ export default function Settings() {
                     <CheckCircle2 size={16} /> Enregistré
                   </span>
                 )}
+              </div>
+            </div>
+
+            {/* Backup Section */}
+            <div className="card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                  <Download size={16} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-neutral-900">Sauvegarde</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">Exportez vos données vers un fichier</p>
+                </div>
+              </div>
+
+              {backupMessage && (
+                <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-normal animate-slide-down ${
+                  backupMessage.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                    : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+                }`}>
+                  {backupMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  {backupMessage.text}
+                </div>
+              )}
+
+              {/* Local Backup */}
+              <div className="border border-neutral-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <HardDrive size={18} className="text-neutral-500" />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-800">Sauvegarde locale (Disque)</p>
+                    <p className="text-xs text-neutral-400">Sauvegardez vos données directement sur votre disque local</p>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      setBackupMessage(null);
+                      const backup = await createBackup();
+                      // Use File System Access API if available
+                      if ('showSaveFilePicker' in window) {
+                        const handle = await (window as typeof window & { showSaveFilePicker: (options?: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+                          suggestedName: `docjourney-backup-${new Date().toISOString().split('T')[0]}.json`,
+                          types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(JSON.stringify(backup, null, 2));
+                        await writable.close();
+                        setBackupMessage({ type: 'success', text: 'Sauvegarde enregistrée avec succès !' });
+                      } else {
+                        // Fallback to download
+                        downloadBackup(backup);
+                        setBackupMessage({ type: 'success', text: 'Sauvegarde téléchargée !' });
+                      }
+                    } catch (err) {
+                      if ((err as Error).name !== 'AbortError') {
+                        setBackupMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
+                      }
+                    }
+                  }}
+                  className="btn-secondary btn-sm w-full"
+                >
+                  <FolderOpen size={14} />
+                  Choisir l'emplacement et sauvegarder
+                </button>
+              </div>
+
+              {/* OneDrive Backup */}
+              <div className="border border-sky-200 bg-sky-50/30 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Cloud size={18} className="text-sky-500" />
+                  <div>
+                    <p className="text-sm font-medium text-neutral-800">Sauvegarde OneDrive</p>
+                    <p className="text-xs text-neutral-400">Sauvegardez dans votre dossier OneDrive (synchronisé automatiquement)</p>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      setBackupMessage(null);
+                      const backup = await createBackup();
+                      if ('showSaveFilePicker' in window) {
+                        const handle = await (window as typeof window & { showSaveFilePicker: (options?: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+                          suggestedName: `docjourney-backup-${new Date().toISOString().split('T')[0]}.json`,
+                          types: [{ description: 'JSON Backup', accept: { 'application/json': ['.json'] } }],
+                          // Suggest OneDrive folder
+                          startIn: 'documents',
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(JSON.stringify(backup, null, 2));
+                        await writable.close();
+                        setBackupMessage({ type: 'success', text: 'Sauvegarde OneDrive enregistrée !' });
+                      } else {
+                        downloadBackup(backup);
+                        setBackupMessage({ type: 'success', text: 'Sauvegarde téléchargée ! Déplacez-la dans OneDrive.' });
+                      }
+                    } catch (err) {
+                      if ((err as Error).name !== 'AbortError') {
+                        setBackupMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
+                      }
+                    }
+                  }}
+                  className="btn-secondary btn-sm w-full bg-sky-100 hover:bg-sky-200 text-sky-700 border-sky-300"
+                >
+                  <Cloud size={14} />
+                  Sauvegarder dans OneDrive
+                </button>
+                <p className="text-[11px] text-sky-600">
+                  <strong>Astuce :</strong> Sélectionnez votre dossier OneDrive (généralement <code className="bg-sky-100 px-1 rounded">C:\Users\VotreNom\OneDrive</code>) pour une synchronisation automatique avec le cloud.
+                </p>
               </div>
             </div>
 
