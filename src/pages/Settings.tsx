@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, CheckCircle2, Trash2, AlertCircle, Database, Shield, Bell, Layout, Mail, HardDrive, Download, Cloud, Loader2 } from 'lucide-react';
+import { Save, User, CheckCircle2, Trash2, AlertCircle, Database, Shield, Bell, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
@@ -20,6 +20,11 @@ const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 export default function Settings() {
   const { settings, loading, updateSettings } = useSettings();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('settings_auth') === 'true';
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('general');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -200,10 +205,63 @@ export default function Settings() {
     setStats({ docs: 0, workflows: 0, participants: 0, activities: 0 });
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const correctPassword = 'Atokp0879*';
+    if (passwordInput === correctPassword) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('settings_auth', 'true');
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+      setPasswordInput('');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Password gate
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] animate-fade-in">
+        <div className="card p-6 sm:p-8 max-w-sm w-full">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-12 h-12 rounded-xl bg-neutral-900 flex items-center justify-center mb-4">
+              <Lock size={24} className="text-white" />
+            </div>
+            <h2 className="text-lg font-medium text-neutral-900">Accès protégé</h2>
+            <p className="text-sm text-neutral-500 mt-1">Entrez le mot de passe pour accéder aux paramètres</p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={e => {
+                  setPasswordInput(e.target.value);
+                  setPasswordError(false);
+                }}
+                className={`input w-full ${passwordError ? 'ring-2 ring-red-300 border-red-300' : ''}`}
+                placeholder="Mot de passe"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-xs text-red-500 mt-1.5">Mot de passe incorrect</p>
+              )}
+            </div>
+            <button type="submit" className="btn-primary w-full">
+              <Lock size={15} />
+              Accéder aux paramètres
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
