@@ -90,16 +90,16 @@ export function generateEmailTemplate(
       </table>
     </div>
 
-    <!-- CTA -->
+    <!-- Attachment Info -->
     <div style="text-align:center;margin:0 0 28px">
-      <div style="background:#f5f5f5;border-radius:12px;padding:24px 20px;margin:0 0 16px">
-        <p style="font-size:13px;color:#525252;margin:0 0 12px">&#128206; <strong>Fichier joint</strong> : ${doc.name.replace(/\.[^.]+$/, '')}_${participant.name.replace(/\s+/g, '_')}.html</p>
-        <table cellpadding="0" cellspacing="0" style="margin:0 auto"><tr>
-          <td style="background:#171717;border-radius:8px;padding:12px 28px">
-            <a style="color:#ffffff;font-size:14px;font-weight:400;text-decoration:none;display:inline-block;letter-spacing:0.3px">&#9654;&nbsp; Ouvrir le fichier HTML joint</a>
-          </td>
-        </tr></table>
-        <p style="font-size:11px;color:#a3a3a3;margin:10px 0 0">Double-cliquez sur le fichier joint pour l'ouvrir dans votre navigateur</p>
+      <div style="background:#eff6ff;border:2px dashed #93c5fd;border-radius:12px;padding:24px 20px">
+        <div style="font-size:32px;margin-bottom:8px">&#128230;</div>
+        <p style="font-size:14px;color:#1e40af;margin:0 0 8px;font-weight:500">Pièce jointe à ouvrir</p>
+        <p style="font-size:13px;color:#1e40af;margin:0 0 12px;background:#dbeafe;display:inline-block;padding:6px 12px;border-radius:6px;font-family:monospace">${doc.name.replace(/\.[^.]+$/, '')}_${participant.name.replace(/\s+/g, '_')}.html</p>
+        <p style="font-size:12px;color:#3b82f6;margin:0;line-height:1.6">
+          <strong>&#8595; Téléchargez</strong> la pièce jointe ci-dessus<br>
+          puis <strong>double-cliquez</strong> dessus pour l'ouvrir
+        </p>
       </div>
     </div>
 
