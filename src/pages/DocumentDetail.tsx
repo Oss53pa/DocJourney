@@ -133,9 +133,19 @@ export default function DocumentDetail() {
       const firebaseConfig = getFirebaseConfig(settings);
       let hostedUrl: string | undefined;
 
+      console.log('=== FIREBASE STORAGE UPLOAD CHECK ===');
+      console.log('syncEnabled:', syncEnabled);
+      console.log('firebaseConfig:', firebaseConfig);
+      console.log('settings.firebaseSyncEnabled:', settings.firebaseSyncEnabled);
+      console.log('settings.firebaseApiKey:', settings.firebaseApiKey ? 'SET' : 'NOT SET');
+      console.log('settings.firebaseDatabaseURL:', settings.firebaseDatabaseURL);
+      console.log('settings.firebaseProjectId:', settings.firebaseProjectId);
+
       if (syncEnabled && firebaseConfig) {
+        console.log('Sync is enabled, attempting upload...');
         try {
           const packageId = generateId();
+          console.log('Generated packageId:', packageId);
           const uploadResult = await uploadPackageToStorage(
             html,
             packageId,
@@ -143,21 +153,30 @@ export default function DocumentDetail() {
             doc.name,
             firebaseConfig
           );
+          console.log('Upload result:', uploadResult);
           if (uploadResult.success && uploadResult.url) {
             hostedUrl = uploadResult.url;
             setGeneratedHostedUrl(uploadResult.url);
             console.log('Package uploaded for preview:', hostedUrl);
+          } else {
+            console.error('Upload failed:', uploadResult.error);
           }
         } catch (error) {
-          console.warn('Error uploading package for preview:', error);
+          console.error('Error uploading package for preview:', error);
           setGeneratedHostedUrl('');
         }
       } else {
+        console.log('Sync NOT enabled or no config - skipping upload');
         setGeneratedHostedUrl('');
       }
 
       // Generate email template preview with hosted URL if available
+      console.log('=== GENERATING EMAIL TEMPLATE ===');
+      console.log('syncEnabled:', syncEnabled);
+      console.log('hostedUrl:', hostedUrl || 'NONE');
       const email = generateEmailTemplate(doc, workflow, workflow.currentStepIndex, syncEnabled, hostedUrl);
+      console.log('Email template generated, length:', email.length);
+      console.log('Contains "Ouvrir la page":', email.includes('Ouvrir la page'));
       setEmailHtml(email);
       setShowEmailModal(true);
 
