@@ -26,7 +26,8 @@ export function useSettings() {
   const refresh = useCallback(async () => {
     setLoading(true);
     const s = await db.settings.get('default');
-    setSettings(s || DEFAULT_SETTINGS);
+    // Merge stored settings with defaults to ensure new fields are available
+    setSettings({ ...DEFAULT_SETTINGS, ...s });
     setLoading(false);
   }, []);
 
