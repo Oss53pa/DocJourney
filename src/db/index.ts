@@ -163,4 +163,14 @@ export async function initializeDB() {
       },
     ]);
   }
+
+  // Clean up corrupted activity entries (where description is an object instead of string)
+  const allActivity = await db.activityLog.toArray();
+  const corruptedIds = allActivity
+    .filter(a => typeof a.description !== 'string')
+    .map(a => a.id);
+  if (corruptedIds.length > 0) {
+    console.warn('Cleaning up', corruptedIds.length, 'corrupted activity entries');
+    await db.activityLog.bulkDelete(corruptedIds);
+  }
 }
