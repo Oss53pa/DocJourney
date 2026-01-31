@@ -1,14 +1,18 @@
 import { computeHash, getParticipantColor, generateId } from '../utils';
 import type {
   PackageData,
+  PackageSyncConfig,
   Workflow,
   DocJourneyDocument,
   PreviousStepSummary,
   Participant,
   ReturnFileData,
+  AppSettings,
 } from '../types';
 import { getAllAnnotationsUpToStep, markStepAsSent } from './workflowService';
 import { generateHTML } from './packageHtml';
+import { generateChannelId, isSyncConfigured } from './firebaseSyncService';
+import { db } from '../db';
 
 // Re-export for external consumers
 export { generateHTML } from './packageHtml';
@@ -76,6 +80,23 @@ export async function generatePackage(
     }
   }
 
+  // Build sync configuration if enabled
+  let syncConfig: PackageSyncConfig | undefined;
+  const settings = await db.settings.get('default') as AppSettings | undefined;
+
+  if (settings && isSyncConfigured(settings)) {
+    const channelId = await generateChannelId(settings.ownerEmail);
+    syncConfig = {
+      enabled: true,
+      channelId,
+      firebaseConfig: {
+        apiKey: settings.firebaseApiKey!,
+        databaseURL: settings.firebaseDatabaseURL!,
+        projectId: settings.firebaseProjectId!,
+      },
+    };
+  }
+
   const packageData: PackageData = {
     version: '2.0.0',
     packageId: generateId(),
@@ -109,6 +130,7 @@ export async function generatePackage(
       lastValidationHash,
       isLockedForSignature,
     },
+    sync: syncConfig,
   };
 
   // Mark step as sent

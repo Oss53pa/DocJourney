@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, CheckCircle2, Trash2, AlertCircle, Database, Shield, Bell, Layout, Mail, HardDrive, Download } from 'lucide-react';
+import { Save, User, CheckCircle2, Trash2, AlertCircle, Database, Shield, Bell, Layout, Mail, HardDrive, Download, Cloud, Loader2 } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
@@ -7,6 +7,7 @@ import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { requestNotificationPermission } from '../services/reminderService';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup } from '../services/backupService';
+import { testFirebaseConnection, isSyncConfigured } from '../services/firebaseSyncService';
 
 type TabId = 'general' | 'models' | 'data' | 'about';
 
@@ -40,6 +41,14 @@ export default function Settings() {
   const [lastAutoBackup, setLastAutoBackup] = useState<Date | undefined>();
   const [backupSaved, setBackupSaved] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  // Firebase sync settings
+  const [firebaseSyncEnabled, setFirebaseSyncEnabled] = useState(false);
+  const [firebaseApiKey, setFirebaseApiKey] = useState('');
+  const [firebaseDatabaseURL, setFirebaseDatabaseURL] = useState('');
+  const [firebaseProjectId, setFirebaseProjectId] = useState('');
+  const [firebaseSaved, setFirebaseSaved] = useState(false);
+  const [firebaseTesting, setFirebaseTesting] = useState(false);
+  const [firebaseTestResult, setFirebaseTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -56,6 +65,11 @@ export default function Settings() {
       setAutoBackupEnabled(settings.autoBackupEnabled ?? false);
       setAutoBackupFrequency(settings.autoBackupFrequency ?? 'weekly');
       setLastAutoBackup(settings.lastAutoBackup);
+      // Firebase sync
+      setFirebaseSyncEnabled(settings.firebaseSyncEnabled ?? false);
+      setFirebaseApiKey(settings.firebaseApiKey ?? '');
+      setFirebaseDatabaseURL(settings.firebaseDatabaseURL ?? '');
+      setFirebaseProjectId(settings.firebaseProjectId ?? '');
     }
   }, [settings, loading]);
 
@@ -131,6 +145,44 @@ export default function Settings() {
       setLastAutoBackup(new Date());
     } finally {
       setIsBackingUp(false);
+    }
+  };
+
+  const handleSaveFirebase = async () => {
+    await updateSettings({
+      firebaseSyncEnabled: firebaseSyncEnabled,
+      firebaseApiKey: firebaseApiKey,
+      firebaseDatabaseURL: firebaseDatabaseURL,
+      firebaseProjectId: firebaseProjectId,
+    });
+    setFirebaseSaved(true);
+    setTimeout(() => setFirebaseSaved(false), 3000);
+  };
+
+  const handleTestFirebase = async () => {
+    if (!firebaseApiKey || !firebaseDatabaseURL || !firebaseProjectId) {
+      setFirebaseTestResult({ success: false, message: 'Veuillez remplir tous les champs' });
+      return;
+    }
+
+    setFirebaseTesting(true);
+    setFirebaseTestResult(null);
+
+    try {
+      const result = await testFirebaseConnection({
+        enabled: true,
+        apiKey: firebaseApiKey,
+        databaseURL: firebaseDatabaseURL,
+        projectId: firebaseProjectId,
+      });
+      setFirebaseTestResult(result);
+    } catch (error) {
+      setFirebaseTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Erreur de test',
+      });
+    } finally {
+      setFirebaseTesting(false);
     }
   };
 
@@ -410,6 +462,115 @@ export default function Settings() {
                   <Save size={14} /> Enregistrer
                 </button>
                 {emailSaved && (
+                  <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-normal animate-fade-in">
+                    <CheckCircle2 size={16} /> Enregistré
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Firebase Sync */}
+            <div className="card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+                  <Cloud size={16} className="text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-neutral-900">Synchronisation automatique (Firebase)</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">Recevez les retours automatiquement sans fichier email</p>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <p className="text-xs text-orange-800 leading-relaxed">
+                  <strong>Fonctionnement :</strong> Quand un participant approuve/rejette un document, sa réponse est
+                  automatiquement synchronisée vers DocJourney. Plus besoin d'attendre un email avec le fichier retour !
+                </p>
+                <p className="text-xs text-orange-700 mt-2 leading-relaxed">
+                  <strong>Configuration requise :</strong> Créez un projet gratuit sur{' '}
+                  <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">Firebase Console</a>,
+                  activez "Realtime Database" et "Anonymous Authentication", puis copiez les credentials ci-dessous.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={firebaseSyncEnabled}
+                  onChange={e => setFirebaseSyncEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                />
+                <span className="text-sm font-normal text-neutral-700">Activer la synchronisation automatique</span>
+              </label>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
+                    API Key <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseApiKey}
+                    onChange={e => setFirebaseApiKey(e.target.value)}
+                    className="input"
+                    placeholder="Ex: AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                    disabled={!firebaseSyncEnabled}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
+                    Database URL <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseDatabaseURL}
+                    onChange={e => setFirebaseDatabaseURL(e.target.value)}
+                    className="input"
+                    placeholder="Ex: https://votre-projet.firebaseio.com"
+                    disabled={!firebaseSyncEnabled}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-normal text-neutral-500 mb-1.5">
+                    Project ID <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseProjectId}
+                    onChange={e => setFirebaseProjectId(e.target.value)}
+                    className="input"
+                    placeholder="Ex: votre-projet-firebase"
+                    disabled={!firebaseSyncEnabled}
+                  />
+                </div>
+              </div>
+
+              {firebaseTestResult && (
+                <div className={`flex items-center gap-2 text-sm ${firebaseTestResult.success ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {firebaseTestResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  {firebaseTestResult.message}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  onClick={handleSaveFirebase}
+                  disabled={firebaseSyncEnabled && (!firebaseApiKey || !firebaseDatabaseURL || !firebaseProjectId)}
+                  className="btn-primary btn-sm"
+                >
+                  <Save size={14} /> Enregistrer
+                </button>
+                <button
+                  onClick={handleTestFirebase}
+                  disabled={!firebaseSyncEnabled || !firebaseApiKey || !firebaseDatabaseURL || !firebaseProjectId || firebaseTesting}
+                  className="btn-secondary btn-sm"
+                >
+                  {firebaseTesting ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} />}
+                  {firebaseTesting ? 'Test...' : 'Tester la connexion'}
+                </button>
+                {firebaseSaved && (
                   <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-normal animate-fade-in">
                     <CheckCircle2 size={16} /> Enregistré
                   </span>

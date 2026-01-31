@@ -575,20 +575,41 @@ function modalsHTML(data: PackageData): string {
 }
 
 function downloadScreenHTML(data: PackageData): string {
+  const hasSyncEnabled = data.sync?.enabled ?? false;
+
   return `
 <div class="download-screen" id="downloadScreen">
   <div class="download-screen-inner">
     <div class="dl-icon-wrap" id="downloadIcon"></div>
     <h2>D\u00e9cision enregistr\u00e9e</h2>
     <div class="dl-decision-label" id="downloadDecisionLabel"></div>
+    ${hasSyncEnabled ? `
+    <div class="sync-status" id="syncStatusContainer" style="display:none">
+      <div class="sync-status-inner">
+        <span id="syncStatus"></span>
+        <span id="syncMessage"></span>
+      </div>
+    </div>
+    ` : ''}
     <div class="dl-summary" id="downloadSummaryRows"></div>
     <div class="dl-download">
+      ${hasSyncEnabled ? `
+      <div class="sync-success-message" id="syncSuccessMessage" style="display:none">
+        <div class="sync-success-icon">\u2713</div>
+        <p>Votre r\u00e9ponse a \u00e9t\u00e9 transmise automatiquement.</p>
+        <p class="sync-success-hint">Vous pouvez fermer cette fen\u00eatre.</p>
+      </div>
+      <div class="sync-fallback" id="syncFallback">
+      ` : ''}
       <button class="btn btn-primary btn-lg" onclick="downloadReturn()">T\u00e9l\u00e9charger le fichier retour</button>
       <button class="btn btn-secondary btn-lg dl-receipt-btn" onclick="downloadReceipt()">T\u00e9l\u00e9charger le re\u00e7u (PDF)</button>
       <div class="dl-email-row">
         Envoyer \u00e0 <strong id="returnEmail">${escapeHtml(data.owner.email)}</strong>
         <button class="copy-email-btn" onclick="copyEmail()">Copier</button>
       </div>
+      ${hasSyncEnabled ? `
+      </div>
+      ` : ''}
     </div>
     <div class="dl-footer">Merci pour votre participation</div>
   </div>

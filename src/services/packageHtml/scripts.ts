@@ -1405,6 +1405,15 @@ function showDownloadScreen(decision, comment, rejDetails) {
   summaryRows.innerHTML = rows;
 
   screen.classList.add('visible');
+
+  // Trigger cloud sync if enabled
+  if (DATA.sync && DATA.sync.enabled) {
+    syncToCloud().then(function(result) {
+      console.log('Sync result:', result);
+    }).catch(function(err) {
+      console.error('Sync failed:', err);
+    });
+  }
 }
 
 // ===== DOWNLOAD =====
@@ -2035,6 +2044,125 @@ function setupResizeHandler() {
       setupSignature();
     }
   });
+}
+
+// ===== CLOUD SYNC =====
+var _firebaseLoaded = false;
+var _firebaseApp = null;
+var _firebaseDb = null;
+
+function loadFirebaseSDK(callback) {
+  if (_firebaseLoaded) { callback(); return; }
+
+  var scripts = [
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js'
+  ];
+
+  var loaded = 0;
+  function onLoad() {
+    loaded++;
+    if (loaded === scripts.length) {
+      _firebaseLoaded = true;
+      callback();
+    }
+  }
+
+  scripts.forEach(function(src, idx) {
+    var script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.onload = onLoad;
+    script.onerror = function() { callback(new Error('Failed to load Firebase')); };
+    setTimeout(function() { document.head.appendChild(script); }, idx * 50);
+  });
+}
+
+async function initFirebaseForSync() {
+  if (!DATA.sync || !DATA.sync.enabled) return false;
+
+  return new Promise(function(resolve) {
+    loadFirebaseSDK(function(err) {
+      if (err) { resolve(false); return; }
+
+      try {
+        var config = DATA.sync.firebaseConfig;
+        try {
+          _firebaseApp = firebase.app('docjourney-html');
+        } catch(e) {
+          _firebaseApp = firebase.initializeApp({
+            apiKey: config.apiKey,
+            databaseURL: config.databaseURL,
+            projectId: config.projectId
+          }, 'docjourney-html');
+        }
+        _firebaseDb = firebase.database(_firebaseApp);
+
+        // Sign in anonymously
+        firebase.auth(_firebaseApp).signInAnonymously()
+          .then(function() { resolve(true); })
+          .catch(function() { resolve(false); });
+      } catch(e) {
+        console.error('Firebase init error:', e);
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function syncToCloud() {
+  if (!DATA.sync || !DATA.sync.enabled || !state.returnData) {
+    return { success: false, message: 'Sync non disponible' };
+  }
+
+  updateSyncStatus('syncing');
+
+  try {
+    var initialized = await initFirebaseForSync();
+    if (!initialized) {
+      throw new Error('Firebase non disponible');
+    }
+
+    var channelId = DATA.sync.channelId;
+    var returnsRef = _firebaseDb.ref('returns/' + channelId);
+    var newReturnRef = returnsRef.push();
+
+    await newReturnRef.set(state.returnData);
+
+    updateSyncStatus('success');
+    return { success: true, message: 'Retour synchronis\\u00e9' };
+  } catch(e) {
+    console.error('Sync error:', e);
+    updateSyncStatus('error', e.message || 'Erreur de synchronisation');
+    return { success: false, message: e.message || 'Erreur de sync' };
+  }
+}
+
+function updateSyncStatus(status, message) {
+  var container = document.getElementById('syncStatusContainer');
+  if (!container) return;
+
+  var syncStatus = document.getElementById('syncStatus');
+  var syncMessage = document.getElementById('syncMessage');
+
+  container.style.display = 'block';
+
+  if (status === 'syncing') {
+    container.className = 'sync-status syncing';
+    syncStatus.innerHTML = '<span class="sync-spinner"></span> Synchronisation...';
+    syncMessage.textContent = 'Envoi en cours vers DocJourney';
+  } else if (status === 'success') {
+    container.className = 'sync-status success';
+    syncStatus.innerHTML = '\\u2713 Synchronis\\u00e9';
+    syncMessage.textContent = 'Votre r\\u00e9ponse a \\u00e9t\\u00e9 transmise automatiquement';
+  } else if (status === 'error') {
+    container.className = 'sync-status error';
+    syncStatus.innerHTML = '\\u2717 Sync \\u00e9chou\\u00e9e';
+    syncMessage.textContent = message || 'Veuillez envoyer le fichier manuellement par email';
+  } else {
+    container.style.display = 'none';
+  }
 }
 
 // ===== UTILITIES =====

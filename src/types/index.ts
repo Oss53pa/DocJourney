@@ -239,6 +239,14 @@ export interface ActivityEntry {
   metadata?: Record<string, unknown>;
 }
 
+// ---- Firebase Sync Configuration ----
+export interface FirebaseSyncConfig {
+  enabled: boolean;
+  apiKey: string;
+  databaseURL: string;
+  projectId: string;
+}
+
 // ---- Settings ----
 export interface AppSettings {
   id: string;
@@ -259,6 +267,11 @@ export interface AppSettings {
   autoBackupEnabled?: boolean;
   autoBackupFrequency?: 'daily' | 'weekly' | 'monthly';
   lastAutoBackup?: Date;
+  // Firebase sync settings
+  firebaseSyncEnabled?: boolean;
+  firebaseApiKey?: string;
+  firebaseDatabaseURL?: string;
+  firebaseProjectId?: string;
 }
 
 // ---- Package Data (for HTML export) ----
@@ -272,6 +285,17 @@ export interface PreviousStepSummary {
   annotationCount: number;
   annotations: Annotation[];
   color: string;
+}
+
+// ---- Package Sync Configuration (embedded in HTML) ----
+export interface PackageSyncConfig {
+  enabled: boolean;
+  channelId: string;  // SHA-256 hash of owner email
+  firebaseConfig: {
+    apiKey: string;
+    databaseURL: string;
+    projectId: string;
+  };
 }
 
 export interface PackageData {
@@ -307,6 +331,7 @@ export interface PackageData {
     lastValidationHash?: string;  // Hash après la dernière validation (avant signature)
     isLockedForSignature?: boolean;  // Document verrouillé pour signature
   };
+  sync?: PackageSyncConfig;  // Firebase sync configuration
 }
 
 // ---- Return file format ----

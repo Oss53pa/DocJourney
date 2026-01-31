@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Clock, AlertCircle, CheckCircle2, XCircle,
   Upload, FileText, ArrowRight, Inbox, ChevronRight, AlertTriangle, Mail, FileEdit,
-  FolderKanban, Trash2
+  FolderKanban, Trash2, Cloud, CloudOff, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -21,6 +21,7 @@ import { useUpcomingDeadlines } from '../hooks/useReminders';
 import { generateMailtoLink } from '../services/reminderService';
 import { useSettings } from '../hooks/useSettings';
 import BlockedWorkflowsList from '../components/blockage/BlockedWorkflowsList';
+import { useFirebaseSync } from '../hooks/useFirebaseSync';
 
 interface DocWithWorkflow {
   doc: DocJourneyDocument;
@@ -58,6 +59,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const { deadlines } = useUpcomingDeadlines(14);
+  const firebaseSync = useFirebaseSync();
   const [drafts, setDrafts] = useState<DocWithWorkflow[]>([]);
   const [inProgress, setInProgress] = useState<DocWithWorkflow[]>([]);
   const [completed, setCompleted] = useState<DocWithWorkflow[]>([]);
@@ -69,7 +71,9 @@ export default function Dashboard() {
   const [importSuccess, setImportSuccess] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>('in_progress');
+  const [syncNotification, setSyncNotification] = useState<string | null>(null);
   const returnFileRef = useRef<HTMLInputElement>(null);
+  const lastProcessedCountRef = useRef(firebaseSync.processedCount);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -99,6 +103,16 @@ export default function Dashboard() {
   }, [search]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Show notification when a new return is processed via Firebase sync
+  useEffect(() => {
+    if (firebaseSync.processedCount > lastProcessedCountRef.current) {
+      setSyncNotification('Nouveau retour reçu automatiquement !');
+      loadData(); // Refresh the data
+      setTimeout(() => setSyncNotification(null), 4000);
+    }
+    lastProcessedCountRef.current = firebaseSync.processedCount;
+  }, [firebaseSync.processedCount, loadData]);
 
   const handleReturnImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,6 +206,14 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Sync notification */}
+      {syncNotification && (
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-normal animate-slide-down bg-sky-50 text-sky-700 ring-1 ring-sky-200">
+          <Cloud size={16} />
+          {syncNotification}
+        </div>
+      )}
 
       {/* Import message */}
       {importMessage && (
@@ -489,8 +511,65 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right column: alerts + blocked workflows + activity */}
+        {/* Right column: sync status + alerts + blocked workflows + activity */}
         <div className="space-y-4">
+          {/* Sync Status (only shown if enabled) */}
+          {firebaseSync.isEnabled && (
+            <section className="card p-4">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                  firebaseSync.status === 'connected' ? 'bg-emerald-100' :
+                  firebaseSync.status === 'connecting' ? 'bg-sky-100' :
+                  firebaseSync.status === 'error' ? 'bg-red-100' : 'bg-neutral-100'
+                }`}>
+                  {firebaseSync.status === 'connecting' ? (
+                    <Loader2 size={14} className="text-sky-600 animate-spin" />
+                  ) : firebaseSync.status === 'connected' ? (
+                    <Cloud size={14} className="text-emerald-600" />
+                  ) : firebaseSync.status === 'error' ? (
+                    <CloudOff size={14} className="text-red-600" />
+                  ) : (
+                    <CloudOff size={14} className="text-neutral-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h2 className={`section-title ${
+                    firebaseSync.status === 'connected' ? 'text-emerald-600' :
+                    firebaseSync.status === 'connecting' ? 'text-sky-600' :
+                    firebaseSync.status === 'error' ? 'text-red-600' : 'text-neutral-500'
+                  }`}>
+                    Sync {firebaseSync.status === 'connected' ? 'Actif' :
+                          firebaseSync.status === 'connecting' ? 'Connexion...' :
+                          firebaseSync.status === 'error' ? 'Erreur' : 'Inactif'}
+                  </h2>
+                </div>
+                {firebaseSync.processedCount > 0 && (
+                  <span className="text-[11px] text-neutral-400">
+                    {firebaseSync.processedCount} retour(s) reçu(s)
+                  </span>
+                )}
+              </div>
+              {firebaseSync.status === 'connected' && (
+                <p className="text-xs text-neutral-500">
+                  Les retours des participants sont reçus automatiquement.
+                </p>
+              )}
+              {firebaseSync.status === 'error' && firebaseSync.lastError && (
+                <p className="text-xs text-red-600">
+                  {firebaseSync.lastError}
+                </p>
+              )}
+              {firebaseSync.status === 'disconnected' && (
+                <button
+                  onClick={() => firebaseSync.connect()}
+                  className="btn-ghost btn-sm text-xs mt-1"
+                >
+                  <Cloud size={12} /> Se connecter
+                </button>
+              )}
+            </section>
+          )}
+
           {/* Alerts */}
           <section className="card p-4">
             <div className="flex items-center gap-2.5 mb-3">

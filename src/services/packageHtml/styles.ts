@@ -347,6 +347,31 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
 
 @keyframes dlFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
+/* ===== SYNC STATUS ===== */
+.sync-status{width:100%;padding:12px 16px;border-radius:12px;margin-bottom:16px;text-align:center;opacity:0;animation:dlFade .3s ease .2s forwards}
+.sync-status.syncing{background:#eff6ff;border:1px solid #bfdbfe}
+.sync-status.success{background:#f0fdf4;border:1px solid #bbf7d0}
+.sync-status.error{background:#fef2f2;border:1px solid #fecaca}
+.sync-status-inner{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sync-status #syncStatus{font-size:14px;font-weight:500}
+.sync-status.syncing #syncStatus{color:#2563eb}
+.sync-status.success #syncStatus{color:#16a34a}
+.sync-status.error #syncStatus{color:#dc2626}
+.sync-status #syncMessage{font-size:12px;color:#737373}
+
+/* Sync spinner */
+.sync-spinner{display:inline-block;width:14px;height:14px;border:2px solid #bfdbfe;border-top-color:#2563eb;border-radius:50%;animation:syncSpin 1s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes syncSpin{to{transform:rotate(360deg)}}
+
+/* Sync success message */
+.sync-success-message{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:16px}
+.sync-success-icon{width:48px;height:48px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700}
+.sync-success-message p{font-size:14px;color:#166534;margin:0}
+.sync-success-hint{font-size:12px!important;color:#737373!important}
+
+/* Sync fallback (manual download) */
+.sync-fallback{width:100%}
+
 /* ===== MOBILE DRAWER ===== */
 .mobile-drawer{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top-left-radius:16px;border-top-right-radius:16px;box-shadow:0 -4px 20px rgba(0,0,0,0.1);z-index:200;max-height:80vh;transition:transform .3s ease}
 .mobile-drawer.collapsed{transform:translateY(calc(100% - 60px))}
