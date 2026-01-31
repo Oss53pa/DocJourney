@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { db } from '../db';
 import type { DocJourneyDocument, Workflow, ActivityEntry, ActivityType } from '../types';
-import { formatRelativeTime, getRoleAction, formatFileSize } from '../utils';
+import { formatRelativeTime, formatRelativeTimeShort, getRoleAction, formatFileSize } from '../utils';
 import { DocumentStatusBadge } from '../components/common/StatusBadge';
 import { JourneyTrackerMini } from '../components/journey/JourneyTracker';
 import EmptyState from '../components/common/EmptyState';
@@ -512,14 +512,14 @@ export default function Dashboard() {
                       <AlertTriangle size={16} className={`flex-shrink-0 ${daysRemaining <= 0 ? 'text-red-500' : daysRemaining <= 3 ? 'text-amber-500' : 'text-amber-400'}`} />
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/document/${workflow.documentId}`)}>
                         <p className="text-sm font-normal text-neutral-800 truncate">{documentName}</p>
-                        <p className="text-[11px] text-neutral-400 font-normal">
+                        <p className="text-[11px] text-neutral-400 font-normal truncate">
                           {daysRemaining <= 0
                             ? 'Échéance dépassée'
                             : daysRemaining === 1
                               ? 'Échéance demain'
-                              : `${daysRemaining} jours restants`
+                              : `${daysRemaining}j restants`
                           }
-                          {currentStep && ` — En attente de ${currentStep.participant.name}`}
+                          {currentStep && ` — ${currentStep.participant.name}`}
                         </p>
                       </div>
                       {currentStep && settings.ownerName && (
@@ -564,21 +564,21 @@ export default function Dashboard() {
                 {recentActivity.map((activity) => (
                   <div
                     key={activity.id}
-                    className="bg-neutral-50 rounded-xl px-3 py-2.5 flex items-center gap-3"
+                    className="bg-neutral-50 rounded-xl px-3 py-2.5"
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-normal text-neutral-800 truncate">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-normal text-neutral-800 truncate flex-1 min-w-0">
                         {activityLabels[activity.type] || activity.type}
                       </p>
-                      {activity.description && (
-                        <p className="text-[11px] text-neutral-400 font-normal truncate">
-                          {activity.description}
-                        </p>
-                      )}
+                      <span className="text-[11px] text-neutral-400 font-normal flex-shrink-0 whitespace-nowrap">
+                        {formatRelativeTimeShort(activity.timestamp)}
+                      </span>
                     </div>
-                    <span className="text-[11px] text-neutral-400 font-normal flex-shrink-0">
-                      {formatRelativeTime(activity.timestamp)}
-                    </span>
+                    {activity.description && (
+                      <p className="text-[11px] text-neutral-400 font-normal truncate mt-0.5">
+                        {activity.description}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
