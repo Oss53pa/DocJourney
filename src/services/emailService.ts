@@ -15,7 +15,8 @@ export function generateEmailSubject(
 export function generateEmailTemplate(
   doc: DocJourneyDocument,
   workflow: Workflow,
-  stepIndex: number
+  stepIndex: number,
+  syncEnabled: boolean = false
 ): string {
   const step = workflow.steps[stepIndex];
   const participant = step.participant;
@@ -125,14 +126,24 @@ export function generateEmailTemplate(
           </td>
         </tr>
         <tr>
-          <td style="width:28px;vertical-align:top;padding-bottom:12px">
+          <td style="width:28px;vertical-align:top${syncEnabled ? '' : ';padding-bottom:12px'}">
             <div style="width:24px;height:24px;background:#171717;border-radius:50%;color:#fff;font-size:11px;font-weight:400;text-align:center;line-height:24px">3</div>
           </td>
-          <td style="padding:2px 0 12px 10px">
-            <p style="font-size:13px;color:#404040;margin:0;font-weight:400">Prenez votre décision et téléchargez le retour</p>
-            <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">Cliquez sur Approuver ou Rejeter, puis téléchargez le fichier .docjourney</p>
+          <td style="padding:2px 0 ${syncEnabled ? '0' : '12px'} 10px">
+            <p style="font-size:13px;color:#404040;margin:0;font-weight:400">Prenez votre décision</p>
+            <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">Cliquez sur Approuver ou Rejeter</p>
           </td>
         </tr>
+        ${syncEnabled ? `
+        <tr>
+          <td colspan="2" style="padding:12px 0 0">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px">
+              <p style="font-size:13px;color:#166534;margin:0;font-weight:500">&#10003; Votre réponse sera envoyée automatiquement</p>
+              <p style="font-size:12px;color:#15803d;margin:4px 0 0">Pas besoin de renvoyer de fichier par email !</p>
+            </div>
+          </td>
+        </tr>
+        ` : `
         <tr>
           <td style="width:28px;vertical-align:top">
             <div style="width:24px;height:24px;background:#171717;border-radius:50%;color:#fff;font-size:11px;font-weight:400;text-align:center;line-height:24px">4</div>
@@ -142,6 +153,7 @@ export function generateEmailTemplate(
             <p style="font-size:12px;color:#a3a3a3;margin:2px 0 0">Envoyez-le à <strong style="color:#404040">${owner.email}</strong></p>
           </td>
         </tr>
+        `}
       </table>
     </div>
   </div>
@@ -202,26 +214,53 @@ export async function sendEmailViaEmailJS(
     throw new Error(validation.error || 'EmailJS non configuré');
   }
 
+  // Check if Firebase sync is enabled
+  const syncEnabled = !!(settings.firebaseSyncEnabled && settings.firebaseApiKey && settings.firebaseDatabaseURL && settings.firebaseProjectId);
+
   const step = workflow.steps[stepIndex];
   const subject = generateEmailSubject(doc, workflow, stepIndex);
-  const htmlContent = generateEmailTemplate(doc, workflow, stepIndex);
+  const htmlContent = generateEmailTemplate(doc, workflow, stepIndex, syncEnabled);
 
   const templateParams: Record<string, string> = {
     to_email: step.participant.email,
     to_name: step.participant.name,
     from_name: workflow.owner.name,
-    from_email: settings.ownerEmail,
+    from_email: settings.ownerEmail || workflow.owner.email,
     subject: subject,
     message_html: htmlContent,
     document_name: doc.name,
     role: getRoleLabel(step.role),
-    reply_to: settings.ownerEmail,
+    reply_to: settings.ownerEmail || workflow.owner.email,
   };
 
-  await emailjs.send(
-    settings.emailjsServiceId!,
-    settings.emailjsTemplateId!,
-    templateParams,
-    settings.emailjsPublicKey!
-  );
+  // Debug: log what we're sending
+  console.log('EmailJS Config:', {
+    serviceId: settings.emailjsServiceId,
+    templateId: settings.emailjsTemplateId,
+    publicKey: settings.emailjsPublicKey?.substring(0, 10) + '...',
+  });
+  console.log('EmailJS Params:', {
+    to_email: templateParams.to_email,
+    to_name: templateParams.to_name,
+    from_name: templateParams.from_name,
+    from_email: templateParams.from_email,
+    subject: templateParams.subject,
+    reply_to: templateParams.reply_to,
+    message_html_length: templateParams.message_html?.length || 0,
+  });
+
+  try {
+    await emailjs.send(
+      settings.emailjsServiceId!,
+      settings.emailjsTemplateId!,
+      templateParams,
+      settings.emailjsPublicKey!
+    );
+  } catch (error: unknown) {
+    // EmailJS returns error with text property containing details
+    const emailJsError = error as { text?: string; message?: string };
+    const errorMessage = emailJsError.text || emailJsError.message || 'Erreur inconnue';
+    console.error('EmailJS Error:', error);
+    throw new Error(`Erreur EmailJS: ${errorMessage}`);
+  }
 }
