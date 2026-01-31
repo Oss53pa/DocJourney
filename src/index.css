@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'Exo 2', system-ui, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-900 overflow-x-hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full hover:bg-neutral-400;
+  }
+
+  ::selection {
+    @apply bg-neutral-900 text-white;
+  }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-normal text-[13px] rounded-xl
+           transition-all duration-200 ease-out
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           disabled:opacity-40 disabled:pointer-events-none
+           active:scale-[0.97] select-none;
+  }
+
+  .btn-primary {
+    @apply btn px-5 py-2.5 bg-neutral-900 text-white shadow-sm
+           hover:bg-neutral-800 hover:shadow-md
+           focus-visible:ring-neutral-900;
+  }
+
+  .btn-secondary {
+    @apply btn px-5 py-2.5 bg-white text-neutral-700 border border-neutral-200 shadow-sm
+           hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-md
+           focus-visible:ring-neutral-400;
+  }
+
+  .btn-ghost {
+    @apply btn px-4 py-2 bg-transparent text-neutral-600
+           hover:bg-neutral-100 hover:text-neutral-900
+           focus-visible:ring-neutral-400;
+  }
+
+  .btn-success {
+    @apply btn px-5 py-2.5 bg-emerald-600 text-white shadow-sm
+           hover:bg-emerald-700 hover:shadow-md
+           focus-visible:ring-emerald-600;
+  }
+
+  .btn-danger {
+    @apply btn px-5 py-2.5 bg-red-600 text-white shadow-sm
+           hover:bg-red-700 hover:shadow-md
+           focus-visible:ring-red-600;
+  }
+
+  .btn-sm {
+    @apply px-3.5 py-1.5 text-xs rounded-lg;
+  }
+
+  .btn-lg {
+    @apply px-7 py-3.5 text-sm rounded-2xl;
+  }
+
+  .btn-icon {
+    @apply btn w-9 h-9 p-0 rounded-xl;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-2xl border border-neutral-200/80 shadow-sm;
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer transition-all duration-200
+           hover:shadow-lg hover:shadow-neutral-200/50 hover:border-neutral-300 hover:-translate-y-0.5;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl
+           text-sm text-neutral-900 placeholder:text-neutral-400
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400
+           hover:border-neutral-300;
+  }
+
+  .input-lg {
+    @apply input py-3 text-base rounded-2xl;
+  }
+
+  .label {
+    @apply block text-[13px] font-normal text-neutral-600 mb-1.5 tracking-wide;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-normal uppercase tracking-wider;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-50 text-amber-700 ring-1 ring-amber-200;
+  }
+
+  .badge-error {
+    @apply badge bg-red-50 text-red-700 ring-1 ring-red-200;
+  }
+
+  .badge-info {
+    @apply badge bg-sky-50 text-sky-700 ring-1 ring-sky-200;
+  }
+
+  .badge-neutral {
+    @apply badge bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200;
+  }
+
+  /* ── Journey Tracker ── */
+  .journey-line {
+    @apply h-[3px] flex-1 mx-0.5 rounded-full transition-colors duration-500;
+  }
+
+  .journey-dot {
+    @apply w-9 h-9 rounded-full flex items-center justify-center text-xs font-normal flex-shrink-0
+           ring-4 ring-white transition-all duration-300 shadow-sm;
+  }
+
+  .journey-dot-completed {
+    @apply journey-dot bg-emerald-500 text-white;
+  }
+
+  .journey-dot-current {
+    @apply journey-dot bg-sky-500 text-white shadow-lg shadow-sky-200;
+    animation: dotPulse 2.5s ease-in-out infinite;
+  }
+
+  .journey-dot-pending {
+    @apply journey-dot bg-neutral-200 text-neutral-400;
+  }
+
+  .journey-dot-rejected {
+    @apply journey-dot bg-red-500 text-white;
+  }
+
+  /* ── Section headers ── */
+  .section-title {
+    @apply text-[11px] font-normal uppercase tracking-[0.15em] text-neutral-400;
+  }
+
+  /* ── Scrollable sidebar ── */
+  .sidebar-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sidebar-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .font-brand {
+    font-family: 'Grand Hotel', cursive;
+  }
+}
+
+/* ── Animations ── */
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4), 0 4px 6px -1px rgba(14, 165, 233, 0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(14, 165, 233, 0), 0 4px 6px -1px rgba(14, 165, 233, 0.1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.35s ease-out both; }
+.animate-slide-up { animation: slideUp 0.4s ease-out both; }
+.animate-slide-right { animation: slideInRight 0.35s ease-out both; }
+.animate-slide-down { animation: slideDown 0.3s ease-out both; }
