@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   // EmailJS configuration (préconfigurée)
   emailjsServiceId: 'service_fptbtnx',
-  emailjsTemplateId: 'service_fptbtnx',
+  emailjsTemplateId: 'template_ih65oh8',
   emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
 };
 

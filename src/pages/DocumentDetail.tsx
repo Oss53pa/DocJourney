@@ -404,15 +404,39 @@ export default function DocumentDetail() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="label">Nom *</label>
-                    <input type="text" value={step.name} onChange={e => updateStep(i, 'name', e.target.value)} className="input" placeholder="Jean Dupont" />
+                    <input
+                      type="text"
+                      name={`step-${i}-name`}
+                      autoComplete="off"
+                      value={step.name}
+                      onChange={e => updateStep(i, 'name', e.target.value)}
+                      className="input"
+                      placeholder="Jean Dupont"
+                    />
                   </div>
                   <div>
                     <label className="label">Email *</label>
-                    <input type="email" value={step.email} onChange={e => updateStep(i, 'email', e.target.value)} className="input" placeholder="jean@example.com" />
+                    <input
+                      type="email"
+                      name={`step-${i}-email`}
+                      autoComplete="off"
+                      value={step.email}
+                      onChange={e => updateStep(i, 'email', e.target.value)}
+                      className="input"
+                      placeholder="jean@example.com"
+                    />
                   </div>
                   <div>
                     <label className="label">Organisation</label>
-                    <input type="text" value={step.organization} onChange={e => updateStep(i, 'organization', e.target.value)} className="input" placeholder="Optionnel" />
+                    <input
+                      type="text"
+                      name={`step-${i}-organization`}
+                      autoComplete="off"
+                      value={step.organization}
+                      onChange={e => updateStep(i, 'organization', e.target.value)}
+                      className="input"
+                      placeholder="Optionnel"
+                    />
                   </div>
                   <div>
                     <label className="label">Rôle *</label>

@@ -394,3 +394,133 @@ export function generateReportPreview(): string {
   };
   return renderReportPDF(workflow, doc);
 }
+
+export function generateReceiptPreview(): string {
+  const workflow = buildCompletedWorkflow();
+  const step = workflow.steps[1]; // Sophie Lefèvre - Validator
+  const docRef = `DJ-${mockDocument.id.substring(0, 8).toUpperCase()}`;
+
+  const formatDate = (d: Date) => {
+    return d.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const roleLabels: Record<string, string> = {
+    reviewer: 'Annotateur',
+    validator: 'Validateur',
+    approver: 'Approbateur',
+    signer: 'Signataire',
+  };
+
+  const decisionLabels: Record<string, string> = {
+    reviewed: 'Annoté',
+    validated: 'Validé',
+    approved: 'Approuvé',
+    rejected: 'Rejeté',
+    modification_requested: 'Modification demandée',
+  };
+
+  const decision = step.response?.decision || 'validated';
+  const isPositive = decision !== 'rejected';
+  const statusColor = isPositive ? '#059669' : '#dc2626';
+  const statusBg = isPositive ? '#ecfdf5' : '#fef2f2';
+
+  return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reçu de participation - DocJourney</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500&family=Grand+Hotel&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Exo 2',system-ui,sans-serif">
+<div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+
+  <!-- Header -->
+  <div style="background:#1a1a1a;padding:32px 40px;text-align:center">
+    <h1 style="font-family:'Grand Hotel',cursive;font-size:36px;color:#ffffff;margin:0;font-weight:400">DocJourney</h1>
+    <p style="color:rgba(255,255,255,0.5);font-size:11px;margin:8px 0 0;letter-spacing:3px;text-transform:uppercase">Reçu de participation</p>
+  </div>
+
+  <!-- Status Banner -->
+  <div style="background:${statusBg};padding:16px 40px;text-align:center;border-bottom:1px solid ${statusColor}20">
+    <span style="display:inline-block;background:${statusColor};color:#fff;font-size:12px;font-weight:500;padding:6px 16px;border-radius:20px;letter-spacing:0.5px">${decisionLabels[decision]?.toUpperCase() || 'TRAITÉ'}</span>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:32px 40px">
+
+    <!-- Thank you message -->
+    <p style="font-size:15px;color:#1a1a1a;margin:0 0 24px;line-height:1.6">
+      Bonjour <strong>${step.participant.name}</strong>,
+    </p>
+    <p style="font-size:14px;color:#525252;margin:0 0 28px;line-height:1.7">
+      Nous vous remercions pour votre participation au circuit de validation. Votre contribution a bien été enregistrée.
+    </p>
+
+    <!-- Receipt Details -->
+    <div style="background:#fafafa;border-radius:12px;padding:24px;margin:0 0 28px">
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px">
+        <tr>
+          <td style="color:#737373;padding:6px 0;width:120px">Document</td>
+          <td style="color:#1a1a1a;padding:6px 0;font-weight:500">${mockDocument.name}</td>
+        </tr>
+        <tr>
+          <td style="color:#737373;padding:6px 0">Référence</td>
+          <td style="color:#1a1a1a;padding:6px 0">${docRef}</td>
+        </tr>
+        <tr>
+          <td style="color:#737373;padding:6px 0">Votre rôle</td>
+          <td style="color:#1a1a1a;padding:6px 0">${roleLabels[step.role] || step.role}</td>
+        </tr>
+        <tr>
+          <td style="color:#737373;padding:6px 0">Décision</td>
+          <td style="color:${statusColor};padding:6px 0;font-weight:500">${decisionLabels[decision] || decision}</td>
+        </tr>
+        <tr>
+          <td style="color:#737373;padding:6px 0">Date</td>
+          <td style="color:#1a1a1a;padding:6px 0">${formatDate(step.completedAt || new Date())}</td>
+        </tr>
+      </table>
+    </div>
+
+    ${step.response?.generalComment ? `
+    <!-- Comment -->
+    <div style="border-left:3px solid #e5e5e5;padding-left:16px;margin:0 0 28px">
+      <p style="font-size:12px;color:#737373;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px">Votre commentaire</p>
+      <p style="font-size:13px;color:#404040;margin:0;line-height:1.6;font-style:italic">"${step.response.generalComment}"</p>
+    </div>
+    ` : ''}
+
+    <!-- Initiator Info -->
+    <div style="background:#f5f5f5;border-radius:8px;padding:16px;text-align:center">
+      <p style="font-size:12px;color:#737373;margin:0 0 4px">Initié par</p>
+      <p style="font-size:14px;color:#1a1a1a;margin:0;font-weight:500">${owner.name}</p>
+      <p style="font-size:12px;color:#737373;margin:2px 0 0">${owner.organization || ''}</p>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#fafafa;padding:20px 40px;text-align:center;border-top:1px solid #e5e5e5">
+    <p style="font-size:11px;color:#a3a3a3;margin:0">
+      Ce reçu a été généré automatiquement par <strong>DocJourney</strong>
+    </p>
+    <p style="font-size:10px;color:#d4d4d4;margin:6px 0 0">
+      Application de validation documentaire — 100% locale, sans serveur
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
+  `.trim();
+}

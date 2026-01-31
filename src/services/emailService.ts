@@ -174,14 +174,32 @@ export function isEmailJSConfigured(settings: AppSettings): boolean {
   return !!(settings.emailjsServiceId && settings.emailjsTemplateId && settings.emailjsPublicKey);
 }
 
+export function validateEmailJSConfig(settings: AppSettings): { valid: boolean; error?: string } {
+  if (!settings.emailjsServiceId) {
+    return { valid: false, error: 'Service ID manquant' };
+  }
+  if (!settings.emailjsTemplateId) {
+    return { valid: false, error: 'Template ID manquant. Allez sur emailjs.com > Email Templates pour copier votre Template ID (commence par template_)' };
+  }
+  if (!settings.emailjsPublicKey) {
+    return { valid: false, error: 'Clé publique manquante' };
+  }
+  // Validate Template ID format
+  if (settings.emailjsTemplateId === settings.emailjsServiceId) {
+    return { valid: false, error: 'Le Template ID ne doit pas être identique au Service ID. Le Template ID commence généralement par "template_"' };
+  }
+  return { valid: true };
+}
+
 export async function sendEmailViaEmailJS(
   doc: DocJourneyDocument,
   workflow: Workflow,
   stepIndex: number,
   settings: AppSettings
 ): Promise<void> {
-  if (!isEmailJSConfigured(settings)) {
-    throw new Error('EmailJS non configuré. Allez dans Paramètres > Général > Configuration email.');
+  const validation = validateEmailJSConfig(settings);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'EmailJS non configuré');
   }
 
   const step = workflow.steps[stepIndex];

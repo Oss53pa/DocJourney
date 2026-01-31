@@ -584,6 +584,7 @@ function downloadScreenHTML(data: PackageData): string {
     <div class="dl-summary" id="downloadSummaryRows"></div>
     <div class="dl-download">
       <button class="btn btn-primary btn-lg" onclick="downloadReturn()">T\u00e9l\u00e9charger le fichier retour</button>
+      <button class="btn btn-secondary btn-lg dl-receipt-btn" onclick="downloadReceipt()">T\u00e9l\u00e9charger le re\u00e7u (PDF)</button>
       <div class="dl-email-row">
         Envoyer \u00e0 <strong id="returnEmail">${escapeHtml(data.owner.email)}</strong>
         <button class="copy-email-btn" onclick="copyEmail()">Copier</button>

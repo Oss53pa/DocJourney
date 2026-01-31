@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Globe, FileText, PenTool, Eye, Loader2, Layout } from 'lucide-react';
-import { generateEmailPreview, generatePackagePreview, generateSignaturePackagePreview, generateReportPreview } from '../../data/templateMockData';
+import { Mail, Globe, FileText, PenTool, Eye, Loader2, Layout, Receipt } from 'lucide-react';
+import { generateEmailPreview, generatePackagePreview, generateSignaturePackagePreview, generateReportPreview, generateReceiptPreview } from '../../data/templateMockData';
 import TemplatePreviewModal from './TemplatePreviewModal';
 
 interface TemplateCard {
@@ -45,6 +45,14 @@ const templates: TemplateCard[] = [
     type: 'pdf',
     generate: generateReportPreview,
   },
+  {
+    id: 'receipt',
+    title: 'Reçu de participation',
+    description: 'Email de confirmation envoyé aux participants après leur validation.',
+    icon: <Receipt size={16} className="text-white" />,
+    type: 'html',
+    generate: generateReceiptPreview,
+  },
 ];
 
 export default function TemplatesSection() {
@@ -77,7 +85,7 @@ export default function TemplatesSection() {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           {templates.map((t) => (
             <div key={t.id} className="bg-neutral-50 rounded-xl p-4 flex flex-col gap-3">
               <div className="flex items-center gap-2.5">

@@ -81,7 +81,7 @@ export async function initializeDB() {
       theme: 'light',
       // EmailJS configuration (préconfigurée)
       emailjsServiceId: 'service_fptbtnx',
-      emailjsTemplateId: 'service_fptbtnx',
+      emailjsTemplateId: 'template_ih65oh8',
       emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
     });
   } else {
@@ -90,7 +90,7 @@ export async function initializeDB() {
     if (existingSettings && !existingSettings.emailjsServiceId) {
       await db.settings.update('default', {
         emailjsServiceId: 'service_fptbtnx',
-        emailjsTemplateId: 'service_fptbtnx',
+        emailjsTemplateId: 'template_ih65oh8',
         emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
       });
     }

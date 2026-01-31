@@ -377,9 +377,14 @@ export default function Settings() {
                     type="text"
                     value={emailjsTemplateId}
                     onChange={e => setEmailjsTemplateId(e.target.value)}
-                    className="input"
+                    className={`input ${emailjsTemplateId && emailjsTemplateId === emailjsServiceId ? 'ring-2 ring-red-300' : ''}`}
                     placeholder="Ex: template_xxxxxxx"
                   />
+                  {emailjsTemplateId && emailjsTemplateId === emailjsServiceId && (
+                    <p className="text-xs text-red-500 mt-1.5">
+                      ⚠️ Le Template ID ne doit pas être identique au Service ID. Trouvez le Template ID sur emailjs.com &gt; Email Templates (commence par "template_").
+                    </p>
+                  )}
                 </div>
 
                 <div>

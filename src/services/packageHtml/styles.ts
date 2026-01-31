@@ -339,6 +339,8 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
 .dl-email-row strong{color:#525252;font-weight:400}
 .copy-email-btn{font-size:12px;color:#525252;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;transition:color .15s}
 .copy-email-btn:hover{color:#171717}
+.dl-receipt-btn{margin-top:10px;width:100%;background:#f5f5f5;color:#404040;border:1px solid #d4d4d4}
+.dl-receipt-btn:hover{background:#e5e5e5}
 
 /* Footer */
 .dl-footer{font-size:11px;color:#d4d4d4;margin-top:20px;opacity:0;animation:dlFade .3s ease .38s forwards}
