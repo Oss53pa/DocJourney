@@ -25,10 +25,10 @@ export default function AppLayout() {
 
   // Check if onboarding is needed
   React.useEffect(() => {
-    if (!loading && !settings.onboardingCompleted && !settings.ownerName && !settings.ownerEmail) {
+    if (!loading && !settings.onboardingCompleted) {
       setShowOnboarding(true);
     }
-  }, [loading, settings.onboardingCompleted, settings.ownerName, settings.ownerEmail]);
+  }, [loading, settings.onboardingCompleted]);
 
   // Background reminder checker
   useReminderChecker(settings.remindersEnabled ?? false);
