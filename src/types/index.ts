@@ -174,6 +174,13 @@ export interface InitialsData {
   };
   applyToAllPages: boolean;                  // Appliquer sur toutes les pages
   position?: { x: number; y: number };       // Position on document (%)
+  pages?: number[];                          // List of pages to apply initials to
+  pageConfig?: {                             // Page selection configuration
+    mode: 'all' | 'custom';
+    excludeFirst?: boolean;
+    excludeLast?: boolean;
+    customPages?: number[];
+  };
   source?: 'draw' | 'import' | 'saved';      // Initials source
 }
 
@@ -311,6 +318,7 @@ export interface PackageData {
     type: DocumentType;
     content: string;
     previewContent?: string;
+    pageCount?: number;
   };
   workflow: {
     id: string;

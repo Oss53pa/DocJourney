@@ -81,7 +81,26 @@ var state = {
   initialsCtx: null,
   initialsHasContent: false,
   initialsSource: 'draw',
-  initialsImportedImage: null
+  initialsImportedImage: null,
+  // Initials positioning state
+  initialsPlaced: false,
+  initialsPosition: { x: 85, y: 95 },
+  initialsDragging: false,
+  initialsDragOffset: { x: 0, y: 0 },
+  initialsResizing: false,
+  initialsResizeOrigin: { x: 0, y: 0, w: 0, h: 0 },
+  initialsScale: 0.6,
+  initialsPageMode: 'all',
+  initialsExcludeFirst: false,
+  initialsExcludeLast: true,
+  initialsCustomPages: [],
+  // Smooth drawing state
+  sigPoints: [],
+  sigLastPoint: null,
+  sigAnimFrame: null,
+  initialsPoints: [],
+  initialsLastPoint: null,
+  initialsAnimFrame: null
 };
 
 // ===== INITIALIZATION =====
@@ -562,61 +581,213 @@ function replyToAnnotation(annId, name) {
   }
 }
 
+// ===== SMOOTH DRAWING UTILITIES =====
+var SMOOTH_CONFIG = {
+  minStrokeWidth: 1.5,
+  maxStrokeWidth: 4.5,
+  smoothing: 0.4,
+  velocityFilterWeight: 0.7,
+  minDistance: 2
+};
+
+function createPoint(x, y, pressure) {
+  return { x: x, y: y, pressure: pressure || 0.5, time: Date.now() };
+}
+
+function calculateVelocity(p1, p2) {
+  var dx = p2.x - p1.x;
+  var dy = p2.y - p1.y;
+  var distance = Math.sqrt(dx * dx + dy * dy);
+  var timeDiff = Math.max(1, p2.time - p1.time);
+  return distance / timeDiff;
+}
+
+function calculateStrokeWidth(velocity, pressure) {
+  var velocityFactor = Math.max(0, 1 - velocity * 0.08);
+  var pressureFactor = pressure;
+  var factor = (velocityFactor * 0.6 + pressureFactor * 0.4);
+  return SMOOTH_CONFIG.minStrokeWidth + (SMOOTH_CONFIG.maxStrokeWidth - SMOOTH_CONFIG.minStrokeWidth) * factor;
+}
+
+function drawSmoothCurve(ctx, points) {
+  if (points.length < 2) return;
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    ctx.stroke();
+    return;
+  }
+
+  for (var i = 1; i < points.length - 1; i++) {
+    var p0 = points[i - 1];
+    var p1 = points[i];
+    var p2 = points[i + 1];
+
+    // Calculate control point for quadratic bezier
+    var cpX = p1.x;
+    var cpY = p1.y;
+    var endX = (p1.x + p2.x) / 2;
+    var endY = (p1.y + p2.y) / 2;
+
+    // Calculate stroke width based on velocity
+    var velocity = calculateVelocity(p0, p1);
+    ctx.lineWidth = calculateStrokeWidth(velocity, p1.pressure);
+
+    ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+  }
+
+  // Draw to the last point
+  var lastPoint = points[points.length - 1];
+  ctx.lineTo(lastPoint.x, lastPoint.y);
+  ctx.stroke();
+}
+
+function smoothPoints(points, smoothing) {
+  if (points.length < 3) return points;
+
+  var smoothed = [points[0]];
+  for (var i = 1; i < points.length - 1; i++) {
+    var prev = points[i - 1];
+    var curr = points[i];
+    var next = points[i + 1];
+
+    smoothed.push({
+      x: curr.x * (1 - smoothing) + ((prev.x + next.x) / 2) * smoothing,
+      y: curr.y * (1 - smoothing) + ((prev.y + next.y) / 2) * smoothing,
+      pressure: curr.pressure,
+      time: curr.time
+    });
+  }
+  smoothed.push(points[points.length - 1]);
+  return smoothed;
+}
+
 // ===== SIGNATURE =====
 function setupSignature() {
   var canvas = document.getElementById('signatureCanvas');
   if (!canvas) return;
 
+  // High DPI support
+  var dpr = window.devicePixelRatio || 1;
   var rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = Math.max(200, rect.width - 12);
-  canvas.height = 180;
-  state.signatureCtx = canvas.getContext('2d');
+  var width = Math.max(200, rect.width - 12);
+  var height = 180;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  state.signatureCtx = canvas.getContext('2d', { desynchronized: true });
+  state.signatureCtx.scale(dpr, dpr);
   state.signatureCtx.strokeStyle = '#171717';
-  state.signatureCtx.lineWidth = 2;
+  state.signatureCtx.lineWidth = 2.5;
   state.signatureCtx.lineCap = 'round';
   state.signatureCtx.lineJoin = 'round';
 
-  canvas.addEventListener('mousedown', function(e) { startDraw(e.offsetX, e.offsetY); });
-  canvas.addEventListener('mousemove', function(e) { if (state.signatureDrawing) draw(e.offsetX, e.offsetY); });
+  canvas.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startDraw(e.offsetX, e.offsetY, 0.5);
+  });
+  canvas.addEventListener('mousemove', function(e) {
+    if (state.signatureDrawing) draw(e.offsetX, e.offsetY, 0.5);
+  });
   canvas.addEventListener('mouseup', stopDraw);
   canvas.addEventListener('mouseleave', stopDraw);
+
+  // Touch support with pressure
   canvas.addEventListener('touchstart', function(e) {
     e.preventDefault();
     var t = e.touches[0];
     var r = canvas.getBoundingClientRect();
-    startDraw(t.clientX - r.left, t.clientY - r.top);
-  });
+    var pressure = t.force || 0.5;
+    startDraw(t.clientX - r.left, t.clientY - r.top, pressure);
+  }, { passive: false });
+
   canvas.addEventListener('touchmove', function(e) {
     e.preventDefault();
     if (state.signatureDrawing) {
       var t = e.touches[0];
       var r = canvas.getBoundingClientRect();
-      draw(t.clientX - r.left, t.clientY - r.top);
+      var pressure = t.force || 0.5;
+      draw(t.clientX - r.left, t.clientY - r.top, pressure);
     }
-  });
+  }, { passive: false });
+
   canvas.addEventListener('touchend', stopDraw);
+  canvas.addEventListener('touchcancel', stopDraw);
 }
 
-function startDraw(x, y) {
+function startDraw(x, y, pressure) {
   state.signatureDrawing = true;
   state.signatureHasContent = true;
-  state.signatureCtx.beginPath();
-  state.signatureCtx.moveTo(x, y);
+  state.sigPoints = [createPoint(x, y, pressure)];
+  state.sigLastPoint = state.sigPoints[0];
   updateSigStatus();
+  renderSigFrame();
 }
-function draw(x, y) {
-  state.signatureCtx.lineTo(x, y);
-  state.signatureCtx.stroke();
+
+function draw(x, y, pressure) {
+  if (!state.signatureDrawing) return;
+
+  var lastPoint = state.sigLastPoint;
+  if (lastPoint) {
+    var dx = x - lastPoint.x;
+    var dy = y - lastPoint.y;
+    var distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < SMOOTH_CONFIG.minDistance) return;
+  }
+
+  var newPoint = createPoint(x, y, pressure);
+  state.sigPoints.push(newPoint);
+  state.sigLastPoint = newPoint;
 }
+
+function renderSigFrame() {
+  if (!state.signatureDrawing) return;
+
+  var ctx = state.signatureCtx;
+  var points = state.sigPoints;
+
+  if (points.length >= 2) {
+    var smoothed = smoothPoints(points.slice(-6), SMOOTH_CONFIG.smoothing);
+    drawSmoothCurve(ctx, smoothed);
+  }
+
+  state.sigAnimFrame = requestAnimationFrame(renderSigFrame);
+}
+
 function stopDraw() {
+  if (!state.signatureDrawing) return;
   state.signatureDrawing = false;
+
+  if (state.sigAnimFrame) {
+    cancelAnimationFrame(state.sigAnimFrame);
+    state.sigAnimFrame = null;
+  }
+
+  // Final render with all points smoothed
+  var ctx = state.signatureCtx;
+  if (state.sigPoints.length >= 2) {
+    var smoothed = smoothPoints(state.sigPoints, SMOOTH_CONFIG.smoothing);
+    drawSmoothCurve(ctx, smoothed);
+  }
+
+  state.sigPoints = [];
+  state.sigLastPoint = null;
 }
 
 function clearSignature() {
   var canvas = document.getElementById('signatureCanvas');
   if (!canvas) return;
-  state.signatureCtx.clearRect(0, 0, canvas.width, canvas.height);
+  var dpr = window.devicePixelRatio || 1;
+  state.signatureCtx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
   state.signatureHasContent = false;
+  state.sigPoints = [];
+  state.sigLastPoint = null;
   updateSigStatus();
 }
 
@@ -736,59 +907,462 @@ function setupInitials() {
   var canvas = document.getElementById('initialsCanvas');
   if (!canvas) return;
 
+  // High DPI support
+  var dpr = window.devicePixelRatio || 1;
   var rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = Math.max(150, rect.width - 12);
-  canvas.height = 80;
-  state.initialsCtx = canvas.getContext('2d');
+  var width = Math.max(150, rect.width - 12);
+  var height = 100;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  state.initialsCtx = canvas.getContext('2d', { desynchronized: true });
+  state.initialsCtx.scale(dpr, dpr);
   state.initialsCtx.strokeStyle = '#171717';
   state.initialsCtx.lineWidth = 2;
   state.initialsCtx.lineCap = 'round';
   state.initialsCtx.lineJoin = 'round';
 
-  canvas.addEventListener('mousedown', function(e) { startInitialsDraw(e.offsetX, e.offsetY); });
-  canvas.addEventListener('mousemove', function(e) { if (state.initialsDrawing) drawInitials(e.offsetX, e.offsetY); });
+  canvas.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startInitialsDraw(e.offsetX, e.offsetY, 0.5);
+  });
+  canvas.addEventListener('mousemove', function(e) {
+    if (state.initialsDrawing) drawInitials(e.offsetX, e.offsetY, 0.5);
+  });
   canvas.addEventListener('mouseup', stopInitialsDraw);
   canvas.addEventListener('mouseleave', stopInitialsDraw);
+
+  // Touch support with pressure
   canvas.addEventListener('touchstart', function(e) {
     e.preventDefault();
     var t = e.touches[0];
     var r = canvas.getBoundingClientRect();
-    startInitialsDraw(t.clientX - r.left, t.clientY - r.top);
-  });
+    var pressure = t.force || 0.5;
+    startInitialsDraw(t.clientX - r.left, t.clientY - r.top, pressure);
+  }, { passive: false });
+
   canvas.addEventListener('touchmove', function(e) {
     e.preventDefault();
     if (state.initialsDrawing) {
       var t = e.touches[0];
       var r = canvas.getBoundingClientRect();
-      drawInitials(t.clientX - r.left, t.clientY - r.top);
+      var pressure = t.force || 0.5;
+      drawInitials(t.clientX - r.left, t.clientY - r.top, pressure);
     }
-  });
+  }, { passive: false });
+
   canvas.addEventListener('touchend', stopInitialsDraw);
+  canvas.addEventListener('touchcancel', stopInitialsDraw);
+
+  // Setup page selector
+  setupInitialsPageSelector();
 }
 
-function startInitialsDraw(x, y) {
+function startInitialsDraw(x, y, pressure) {
   state.initialsDrawing = true;
   state.initialsHasContent = true;
-  state.initialsCtx.beginPath();
-  state.initialsCtx.moveTo(x, y);
+  state.initialsPoints = [createPoint(x, y, pressure)];
+  state.initialsLastPoint = state.initialsPoints[0];
   updateInitialsStatus();
+  renderInitialsFrame();
 }
 
-function drawInitials(x, y) {
-  state.initialsCtx.lineTo(x, y);
-  state.initialsCtx.stroke();
+function drawInitials(x, y, pressure) {
+  if (!state.initialsDrawing) return;
+
+  var lastPoint = state.initialsLastPoint;
+  if (lastPoint) {
+    var dx = x - lastPoint.x;
+    var dy = y - lastPoint.y;
+    var distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < SMOOTH_CONFIG.minDistance) return;
+  }
+
+  var newPoint = createPoint(x, y, pressure);
+  state.initialsPoints.push(newPoint);
+  state.initialsLastPoint = newPoint;
+}
+
+function renderInitialsFrame() {
+  if (!state.initialsDrawing) return;
+
+  var ctx = state.initialsCtx;
+  var points = state.initialsPoints;
+
+  if (points.length >= 2) {
+    var smoothed = smoothPoints(points.slice(-6), SMOOTH_CONFIG.smoothing);
+    drawSmoothCurve(ctx, smoothed);
+  }
+
+  state.initialsAnimFrame = requestAnimationFrame(renderInitialsFrame);
 }
 
 function stopInitialsDraw() {
+  if (!state.initialsDrawing) return;
   state.initialsDrawing = false;
+
+  if (state.initialsAnimFrame) {
+    cancelAnimationFrame(state.initialsAnimFrame);
+    state.initialsAnimFrame = null;
+  }
+
+  // Final render with all points smoothed
+  var ctx = state.initialsCtx;
+  if (state.initialsPoints.length >= 2) {
+    var smoothed = smoothPoints(state.initialsPoints, SMOOTH_CONFIG.smoothing);
+    drawSmoothCurve(ctx, smoothed);
+  }
+
+  state.initialsPoints = [];
+  state.initialsLastPoint = null;
+}
+
+// ===== INITIALS PAGE SELECTOR =====
+function setupInitialsPageSelector() {
+  var container = document.getElementById('initialsPageSelector');
+  if (!container) return;
+
+  // Use pageCount from document data if available, otherwise fall back to state.totalPages
+  var totalPages = DATA.document.pageCount || state.totalPages || 1;
+  state.totalPages = totalPages;
+
+  if (totalPages <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+
+  // Initialize custom pages array
+  state.initialsCustomPages = [];
+  for (var i = 1; i <= totalPages; i++) {
+    if (!(state.initialsExcludeLast && i === totalPages)) {
+      state.initialsCustomPages.push(i);
+    }
+  }
+
+  updateInitialsPageUI();
+}
+
+function updateInitialsPageUI() {
+  var container = document.getElementById('initialsPageSelector');
+  if (!container) return;
+
+  var totalPages = state.totalPages || 1;
+  if (totalPages <= 1) return;
+
+  var selectedCount = getInitialsPageCount();
+
+  var html = '<div class="initials-pages-config">' +
+    '<div class="initials-pages-header">' +
+    '<span class="initials-pages-title">Pages \\u00e0 parapher</span>' +
+    '<span class="initials-pages-count">' + selectedCount + '/' + totalPages + ' pages</span>' +
+    '</div>' +
+    '<div class="initials-pages-options">' +
+    '<label class="initials-page-option">' +
+    '<input type="radio" name="initialsPageMode" value="all" ' + (state.initialsPageMode === 'all' ? 'checked' : '') + ' onchange="setInitialsPageMode(\\'all\\')" />' +
+    '<span>Toutes les pages</span>' +
+    '</label>' +
+    '<label class="initials-page-option">' +
+    '<input type="radio" name="initialsPageMode" value="custom" ' + (state.initialsPageMode === 'custom' ? 'checked' : '') + ' onchange="setInitialsPageMode(\\'custom\\')" />' +
+    '<span>S\\u00e9lection personnalis\\u00e9e</span>' +
+    '</label>' +
+    '</div>';
+
+  if (state.initialsPageMode === 'all') {
+    html += '<div class="initials-pages-excludes">' +
+      '<label class="initials-exclude-option"><input type="checkbox" ' + (state.initialsExcludeFirst ? 'checked' : '') + ' onchange="toggleInitialsExcludeFirst()" /> Exclure la premi\\u00e8re page</label>' +
+      '<label class="initials-exclude-option"><input type="checkbox" ' + (state.initialsExcludeLast ? 'checked' : '') + ' onchange="toggleInitialsExcludeLast()" /> Exclure la derni\\u00e8re page (signature)</label>' +
+      '</div>';
+  } else {
+    html += '<div class="initials-pages-grid">';
+    for (var i = 1; i <= totalPages; i++) {
+      var isSelected = state.initialsCustomPages.indexOf(i) !== -1;
+      html += '<label class="initials-page-checkbox ' + (isSelected ? 'selected' : '') + '">' +
+        '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' onchange="toggleInitialsPage(' + i + ')" />' +
+        '<span>' + i + '</span>' +
+        '</label>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function setInitialsPageMode(mode) {
+  state.initialsPageMode = mode;
+  updateInitialsPageUI();
+}
+
+function toggleInitialsExcludeFirst() {
+  state.initialsExcludeFirst = !state.initialsExcludeFirst;
+  updateInitialsPageUI();
+}
+
+function toggleInitialsExcludeLast() {
+  state.initialsExcludeLast = !state.initialsExcludeLast;
+  updateInitialsPageUI();
+}
+
+function toggleInitialsPage(pageNum) {
+  var idx = state.initialsCustomPages.indexOf(pageNum);
+  if (idx === -1) {
+    state.initialsCustomPages.push(pageNum);
+    state.initialsCustomPages.sort(function(a, b) { return a - b; });
+  } else {
+    state.initialsCustomPages.splice(idx, 1);
+  }
+  updateInitialsPageUI();
+}
+
+function getInitialsPageCount() {
+  var totalPages = state.totalPages || 1;
+  if (state.initialsPageMode === 'all') {
+    var count = totalPages;
+    if (state.initialsExcludeFirst) count--;
+    if (state.initialsExcludeLast) count--;
+    return Math.max(0, count);
+  }
+  return state.initialsCustomPages.length;
+}
+
+function getInitialsPages() {
+  var totalPages = state.totalPages || 1;
+  if (state.initialsPageMode === 'all') {
+    var pages = [];
+    for (var i = 1; i <= totalPages; i++) {
+      if (state.initialsExcludeFirst && i === 1) continue;
+      if (state.initialsExcludeLast && i === totalPages) continue;
+      pages.push(i);
+    }
+    return pages;
+  }
+  return state.initialsCustomPages.slice();
+}
+
+// ===== INITIALS POSITIONING =====
+function startInitialsPlacement() {
+  var initialsImage = getInitialsImage();
+  if (!initialsImage) {
+    alert('Veuillez d\\'abord cr\\u00e9er ou importer votre paraphe.');
+    return;
+  }
+
+  var overlay = document.getElementById('initialsPlacementOverlay');
+  if (!overlay) return;
+
+  // Show overlay
+  overlay.style.display = 'block';
+
+  // Set up draggable initials
+  var draggable = document.getElementById('initialsDraggable');
+  var img = document.getElementById('initialsDragImg');
+  if (img && draggable) {
+    img.src = initialsImage;
+    img.onload = function() {
+      var baseW = Math.min(80, img.naturalWidth);
+      var baseH = (img.naturalHeight / img.naturalWidth) * baseW;
+      draggable.style.width = (baseW * state.initialsScale) + 'px';
+      draggable.style.height = (baseH * state.initialsScale) + 'px';
+
+      // Position based on saved position
+      var ob = overlay.getBoundingClientRect();
+      var x = (state.initialsPosition.x / 100) * ob.width - draggable.offsetWidth / 2;
+      var y = (state.initialsPosition.y / 100) * ob.height - draggable.offsetHeight / 2;
+      draggable.style.left = Math.max(0, x) + 'px';
+      draggable.style.top = Math.max(0, y) + 'px';
+    };
+  }
+
+  setupInitialsDragResize();
+}
+
+function setupInitialsDragResize() {
+  var draggable = document.getElementById('initialsDraggable');
+  var resizeHandle = document.getElementById('initialsResizeHandle');
+  var overlay = document.getElementById('initialsPlacementOverlay');
+  if (!draggable || !overlay) return;
+
+  function getOverlayBounds() {
+    return overlay.getBoundingClientRect();
+  }
+
+  function clampPosition() {
+    var ob = getOverlayBounds();
+    var x = parseFloat(draggable.style.left) || 0;
+    var y = parseFloat(draggable.style.top) || 0;
+    x = Math.max(0, Math.min(x, ob.width - draggable.offsetWidth));
+    y = Math.max(0, Math.min(y, ob.height - draggable.offsetHeight));
+    draggable.style.left = x + 'px';
+    draggable.style.top = y + 'px';
+  }
+
+  function savePosition() {
+    var ob = getOverlayBounds();
+    var x = parseFloat(draggable.style.left) || 0;
+    var y = parseFloat(draggable.style.top) || 0;
+    state.initialsPosition = {
+      x: ((x + draggable.offsetWidth / 2) / ob.width) * 100,
+      y: ((y + draggable.offsetHeight / 2) / ob.height) * 100
+    };
+  }
+
+  // Drag
+  draggable.addEventListener('mousedown', function(e) {
+    if (e.target === resizeHandle) return;
+    e.preventDefault();
+    state.initialsDragging = true;
+    state.initialsDragOffset = { x: e.offsetX, y: e.offsetY };
+  });
+
+  draggable.addEventListener('touchstart', function(e) {
+    if (e.target === resizeHandle) return;
+    e.preventDefault();
+    state.initialsDragging = true;
+    var t = e.touches[0];
+    var r = draggable.getBoundingClientRect();
+    state.initialsDragOffset = { x: t.clientX - r.left, y: t.clientY - r.top };
+  }, { passive: false });
+
+  overlay.addEventListener('mousemove', function(e) {
+    if (!state.initialsDragging) return;
+    var ob = getOverlayBounds();
+    var x = e.clientX - ob.left - state.initialsDragOffset.x;
+    var y = e.clientY - ob.top - state.initialsDragOffset.y;
+    draggable.style.left = x + 'px';
+    draggable.style.top = y + 'px';
+    clampPosition();
+    savePosition();
+  });
+
+  overlay.addEventListener('touchmove', function(e) {
+    if (!state.initialsDragging) return;
+    e.preventDefault();
+    var t = e.touches[0];
+    var ob = getOverlayBounds();
+    var x = t.clientX - ob.left - state.initialsDragOffset.x;
+    var y = t.clientY - ob.top - state.initialsDragOffset.y;
+    draggable.style.left = x + 'px';
+    draggable.style.top = y + 'px';
+    clampPosition();
+    savePosition();
+  }, { passive: false });
+
+  function stopInitialsDrag() {
+    state.initialsDragging = false;
+    state.initialsResizing = false;
+  }
+
+  overlay.addEventListener('mouseup', stopInitialsDrag);
+  overlay.addEventListener('mouseleave', stopInitialsDrag);
+  overlay.addEventListener('touchend', stopInitialsDrag);
+
+  // Resize
+  if (resizeHandle) {
+    resizeHandle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      state.initialsResizing = true;
+      state.initialsResizeOrigin = {
+        x: e.clientX,
+        y: e.clientY,
+        w: draggable.offsetWidth,
+        h: draggable.offsetHeight
+      };
+    });
+
+    resizeHandle.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      state.initialsResizing = true;
+      var t = e.touches[0];
+      state.initialsResizeOrigin = {
+        x: t.clientX,
+        y: t.clientY,
+        w: draggable.offsetWidth,
+        h: draggable.offsetHeight
+      };
+    }, { passive: false });
+
+    overlay.addEventListener('mousemove', function(e) {
+      if (!state.initialsResizing) return;
+      var dx = e.clientX - state.initialsResizeOrigin.x;
+      var scale = (state.initialsResizeOrigin.w + dx) / state.initialsResizeOrigin.w;
+      scale = Math.max(0.3, Math.min(2, scale));
+      var nw = state.initialsResizeOrigin.w * scale;
+      var nh = state.initialsResizeOrigin.h * scale;
+      draggable.style.width = nw + 'px';
+      draggable.style.height = nh + 'px';
+      state.initialsScale = scale * (state.initialsScale || 0.6);
+      clampPosition();
+      savePosition();
+    });
+
+    overlay.addEventListener('touchmove', function(e) {
+      if (!state.initialsResizing) return;
+      e.preventDefault();
+      var t = e.touches[0];
+      var dx = t.clientX - state.initialsResizeOrigin.x;
+      var scale = (state.initialsResizeOrigin.w + dx) / state.initialsResizeOrigin.w;
+      scale = Math.max(0.3, Math.min(2, scale));
+      var nw = state.initialsResizeOrigin.w * scale;
+      var nh = state.initialsResizeOrigin.h * scale;
+      draggable.style.width = nw + 'px';
+      draggable.style.height = nh + 'px';
+      state.initialsScale = scale * (state.initialsScale || 0.6);
+      clampPosition();
+      savePosition();
+    }, { passive: false });
+  }
+}
+
+function confirmInitialsPlacement() {
+  state.initialsPlaced = true;
+  hideInitialsPlacement();
+  updateInitialsPositionInfo();
+}
+
+function hideInitialsPlacement() {
+  var overlay = document.getElementById('initialsPlacementOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function removeInitialsPlacement() {
+  state.initialsPlaced = false;
+  updateInitialsPositionInfo();
+}
+
+function updateInitialsPositionInfo() {
+  var placeBtn = document.getElementById('initialsPlaceBtn');
+  var posInfo = document.getElementById('initialsPositionInfo');
+  var hasInitials = hasAnyInitials();
+
+  if (placeBtn) {
+    placeBtn.style.display = hasInitials && !state.initialsPlaced ? 'inline-flex' : 'none';
+  }
+  if (posInfo) {
+    posInfo.style.display = state.initialsPlaced ? 'flex' : 'none';
+    if (state.initialsPlaced) {
+      var pageCount = getInitialsPageCount();
+      posInfo.innerHTML = '\\u2713 Paraphe positionn\\u00e9 sur ' + pageCount + ' page(s) ' +
+        '<button class="btn btn-secondary btn-sm" onclick="removeInitialsPlacement()">Modifier</button>';
+    }
+  }
 }
 
 function clearInitials() {
   var canvas = document.getElementById('initialsCanvas');
   if (!canvas) return;
-  state.initialsCtx.clearRect(0, 0, canvas.width, canvas.height);
+  var dpr = window.devicePixelRatio || 1;
+  state.initialsCtx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
   state.initialsHasContent = false;
+  state.initialsPoints = [];
+  state.initialsLastPoint = null;
+  state.initialsPlaced = false;
   updateInitialsStatus();
+  updateInitialsPositionInfo();
 }
 
 function updateInitialsStatus() {
@@ -797,6 +1371,7 @@ function updateInitialsStatus() {
     el.textContent = state.initialsHasContent ? 'Paraphe pr\\u00eat' : 'Aucun paraphe';
     el.style.color = state.initialsHasContent ? '#22c55e' : '#a3a3a3';
   }
+  updateInitialsPositionInfo();
 }
 
 function switchInitialsSource(source) {
@@ -812,6 +1387,7 @@ function switchInitialsSource(source) {
   var paneId = { draw: 'initialsSourceDraw', import: 'initialsSourceImport', saved: 'initialsSourceSaved' }[source];
   var activePane = document.getElementById(paneId);
   if (activePane) activePane.classList.add('active');
+  updateInitialsPositionInfo();
 }
 
 function handleInitialsFileImport(event) {
@@ -834,6 +1410,7 @@ function handleInitialsFileImport(event) {
     if (img) img.src = state.initialsImportedImage;
     if (preview) preview.style.display = 'block';
     if (importZone) importZone.style.display = 'none';
+    updateInitialsPositionInfo();
   };
   reader.readAsDataURL(file);
 }
@@ -877,6 +1454,7 @@ function useSavedInitials() {
       info.appendChild(msg);
     }
   }
+  updateInitialsPositionInfo();
 }
 
 function saveInitialsToLocalStorage(imageDataURL) {
@@ -1317,6 +1895,7 @@ function confirmDecision(type) {
   if (hasAnyInitials()) {
     var initialsImage = getInitialsImage();
     if (initialsImage) {
+      var initialsPages = getInitialsPages();
       initialsData = {
         image: initialsImage,
         timestamp: new Date(),
@@ -1326,7 +1905,15 @@ function confirmDecision(type) {
           participantEmail: DATA.currentStep.participant.email,
           userAgent: navigator.userAgent
         },
-        applyToAllPages: true,
+        applyToAllPages: state.initialsPageMode === 'all' && !state.initialsExcludeFirst && !state.initialsExcludeLast,
+        position: state.initialsPlaced ? state.initialsPosition : { x: 85, y: 95 },
+        pages: initialsPages,
+        pageConfig: {
+          mode: state.initialsPageMode,
+          excludeFirst: state.initialsExcludeFirst,
+          excludeLast: state.initialsExcludeLast,
+          customPages: state.initialsCustomPages
+        },
         source: state.initialsSource
       };
     }

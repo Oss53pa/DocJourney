@@ -346,7 +346,7 @@ function decisionTabHTML(data: PackageData): string {
     <!-- Section Paraphe -->
     <div class="initials-zone" id="initialsSection">
       <h4>Votre paraphe</h4>
-      <p class="initials-hint">Le paraphe sera appliqu\u00e9 sur toutes les pages du document.</p>
+      <p class="initials-hint">Le paraphe sera appliqu\u00e9 automatiquement sur les pages s\u00e9lectionn\u00e9es.</p>
 
       <!-- Tabs sources paraphe -->
       <div class="sig-source-tabs initials-tabs">
@@ -385,11 +385,36 @@ function decisionTabHTML(data: PackageData): string {
         <div id="savedInitialsContent"></div>
       </div>
 
+      <!-- Page selector -->
+      <div id="initialsPageSelector" class="initials-page-selector"></div>
+
+      <!-- Bouton positionnement paraphe -->
+      <button class="btn btn-primary btn-sm initials-place-btn" id="initialsPlaceBtn" style="display:none" onclick="startInitialsPlacement()">
+        \ud83d\udccd Positionner le paraphe
+      </button>
+      <div class="initials-position-info" id="initialsPositionInfo" style="display:none"></div>
+
       <!-- Sauvegarder paraphe -->
       <label class="sig-save-check">
         <input type="checkbox" id="initialsSaveCheck" />
         Sauvegarder ce paraphe pour un usage ult\u00e9rieur
       </label>
+    </div>
+
+    <!-- Overlay positionnement paraphe -->
+    <div class="initials-placement-overlay" id="initialsPlacementOverlay" style="display:none">
+      <div class="initials-placement-toolbar">
+        <span>Positionnez votre paraphe (m\u00eame emplacement sur toutes les pages)</span>
+        <div class="initials-placement-actions">
+          <button class="btn btn-secondary btn-sm" onclick="hideInitialsPlacement()">Annuler</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmInitialsPlacement()">\u2713 Confirmer</button>
+        </div>
+      </div>
+      <div class="initials-draggable" id="initialsDraggable">
+        <img id="initialsDragImg" />
+        <div class="initials-drag-handle">\u2725</div>
+        <div class="initials-resize-handle" id="initialsResizeHandle"></div>
+      </div>
     </div>
 
     <!-- Section Signature -->

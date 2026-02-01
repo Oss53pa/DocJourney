@@ -107,6 +107,7 @@ export async function generatePackage(
       type: doc.type,
       content: doc.content,
       previewContent: doc.previewContent,
+      pageCount: doc.metadata?.pageCount,
     },
     workflow: {
       id: workflow.id,
