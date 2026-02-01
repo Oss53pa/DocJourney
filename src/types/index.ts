@@ -267,6 +267,7 @@ export interface AppSettings {
   autoBackupEnabled?: boolean;
   autoBackupFrequency?: 'daily' | 'weekly' | 'monthly';
   lastAutoBackup?: Date;
+  backupFolderName?: string; // Display name of selected folder
   // Firebase sync settings
   firebaseSyncEnabled?: boolean;
   firebaseApiKey?: string;
