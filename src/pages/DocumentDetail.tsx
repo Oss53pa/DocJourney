@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, Send, Upload, FileText, Clock, CheckCircle2,
-  XCircle, AlertCircle, Eye, EyeOff, MessageSquare, Ban, Mail,
+  XCircle, AlertCircle, Eye, EyeOff, MessageSquare, Ban, Mail, Cloud,
   Plus, Trash2, ArrowRight, Save, Check, Layers
 } from 'lucide-react';
 import { db } from '../db';
@@ -24,6 +24,7 @@ import { generateMailtoLink } from '../services/reminderService';
 import { useSettings } from '../hooks/useSettings';
 import { useWorkflowTemplates } from '../hooks/useWorkflowTemplates';
 import { incrementUsage, saveCurrentAsTemplate } from '../services/workflowTemplateService';
+import CloudExportModal from '../components/cloud/CloudExportModal';
 import BlockageAlert from '../components/blockage/BlockageAlert';
 import { detectBlockedWorkflows } from '../services/blockageService';
 import type { BlockedWorkflowInfo } from '../types';
@@ -62,6 +63,7 @@ export default function DocumentDetail() {
   const [generatedPackageHtml, setGeneratedPackageHtml] = useState('');
   const [generatedHostedUrl, setGeneratedHostedUrl] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showCloudModal, setShowCloudModal] = useState(false);
   const [blockageInfo, setBlockageInfo] = useState<BlockedWorkflowInfo | null>(null);
   const returnFileRef = useRef<HTMLInputElement>(null);
 
@@ -664,6 +666,10 @@ export default function DocumentDetail() {
               Télécharger le CRV
             </button>
           )}
+          <button onClick={() => setShowCloudModal(true)} className="btn-secondary">
+            <Cloud size={15} />
+            <span className="hidden sm:inline">Cloud</span>
+          </button>
         </div>
       )}
 
@@ -887,6 +893,14 @@ export default function DocumentDetail() {
         </div>
       </Modal>
 
+      {/* Cloud Export Modal */}
+      {doc && (
+        <CloudExportModal
+          isOpen={showCloudModal}
+          onClose={() => setShowCloudModal(false)}
+          document={doc}
+        />
+      )}
     </div>
   );
 }
