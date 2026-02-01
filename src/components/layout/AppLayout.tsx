@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import FloatingHelpButton from './FloatingHelpButton';
+import OnboardingWizard from '../onboarding/OnboardingWizard';
 import { useReminderChecker } from '../../hooks/useReminders';
 import { useSettings } from '../../hooks/useSettings';
 
@@ -19,15 +20,31 @@ const pageTitles: Record<string, string> = {
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const { settings } = useSettings();
+  const { settings, loading, refresh } = useSettings();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check if onboarding is needed
+  React.useEffect(() => {
+    if (!loading && !settings.onboardingCompleted && !settings.ownerName && !settings.ownerEmail) {
+      setShowOnboarding(true);
+    }
+  }, [loading, settings.onboardingCompleted, settings.ownerName, settings.ownerEmail]);
 
   // Background reminder checker
   useReminderChecker(settings.remindersEnabled ?? false);
 
   const pageTitle = pageTitles[location.pathname] || '';
 
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    refresh();
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50">
+      {/* Onboarding Wizard */}
+      {showOnboarding && <OnboardingWizard onComplete={handleOnboardingComplete} />}
+
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Mobile top bar */}

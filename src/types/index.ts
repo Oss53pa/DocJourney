@@ -263,6 +263,8 @@ export interface AppSettings {
   emailjsServiceId?: string;
   emailjsTemplateId?: string;
   emailjsPublicKey?: string;
+  // Onboarding
+  onboardingCompleted?: boolean;
   // Auto-backup settings
   autoBackupEnabled?: boolean;
   autoBackupFrequency?: 'daily' | 'weekly' | 'monthly';
