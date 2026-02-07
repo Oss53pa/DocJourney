@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../db';
-import type { AppSettings } from '../types';
+import type { AppSettings, RetentionMode, DocumentStatus } from '../types';
 
 const DEFAULT_SETTINGS: AppSettings = {
   id: 'default',
@@ -8,15 +8,23 @@ const DEFAULT_SETTINGS: AppSettings = {
   ownerEmail: '',
   ownerOrganization: '',
   theme: 'light',
-  // EmailJS configuration (préconfigurée)
-  emailjsServiceId: 'service_fptbtnx',
-  emailjsTemplateId: 'template_ih65oh8',
-  emailjsPublicKey: 'UqTT-gaCEOyELzhy_',
-  // Firebase Sync configuration (préconfigurée)
-  firebaseSyncEnabled: true,
-  firebaseApiKey: 'AIzaSyCLgse5mcDpFGLAG4eJf9HVqyd-1Uxvprw',
-  firebaseDatabaseURL: 'https://docjourney-default-rtdb.europe-west1.firebasedatabase.app',
-  firebaseProjectId: 'docjourney',
+  // EmailJS configuration
+  emailjsServiceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
+  emailjsTemplateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '',
+  emailjsPublicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || '',
+  // Firebase Sync configuration (from environment variables)
+  firebaseSyncEnabled: !!import.meta.env.VITE_FIREBASE_API_KEY,
+  firebaseApiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  firebaseDatabaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || '',
+  firebaseProjectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  // Retention policy
+  retentionEnabled: true,
+  retentionDays: 7,
+  retentionMode: 'content_only' as RetentionMode,
+  retentionNotifyBeforeDeletion: true,
+  retentionNotifyDaysBefore: 2,
+  retentionAutoBackupToCloud: true,
+  retentionExcludeStatuses: [] as DocumentStatus[],
 };
 
 export function useSettings() {
