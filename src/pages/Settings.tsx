@@ -6,6 +6,7 @@ import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSe
 import SecuritySettingsSection from '../components/settings/SecuritySettingsSection';
 import RetentionSettingsSection from '../components/retention/RetentionSettingsSection';
 import RetentionDashboard from '../components/retention/RetentionDashboard';
+import StorageManagementSection from '../components/settings/StorageManagementSection';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
@@ -476,6 +477,9 @@ export default function Settings() {
         {/* ====== DONNÉES ====== */}
         {activeTab === 'data' && (
           <>
+            {/* Storage Management */}
+            <StorageManagementSection />
+
             {/* Stats */}
             <div className="card p-5 sm:p-6 space-y-5">
               <div className="flex items-center gap-3">
@@ -747,6 +751,11 @@ export default function Settings() {
               )}
             </div>
           </>
+        )}
+
+        {/* ====== SÉCURITÉ ====== */}
+        {activeTab === 'security' && (
+          <SecuritySettingsSection />
         )}
 
         {/* ====== À PROPOS ====== */}

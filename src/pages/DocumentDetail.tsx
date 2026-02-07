@@ -34,6 +34,7 @@ import DeletionWarningBanner from '../components/retention/DeletionWarningBanner
 import ProtectDocumentButton from '../components/retention/ProtectDocumentButton';
 import ExtendRetentionModal from '../components/retention/ExtendRetentionModal';
 import type { BlockedWorkflowInfo } from '../types';
+import CompletedDocumentView from '../components/document-detail/CompletedDocumentView';
 
 const ROLES: { value: ParticipantRole; label: string; desc: string }[] = [
   { value: 'reviewer', label: 'Annotateur', desc: 'Annote et commente' },
@@ -338,6 +339,26 @@ export default function DocumentDetail() {
   const isInProgress = doc.status === 'in_progress';
   const isCompleted = doc.status === 'completed';
   const isRejected = doc.status === 'rejected';
+
+  // Delegate to enhanced view for completed/rejected documents
+  if ((isCompleted || isRejected) && workflow) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <button onClick={() => navigate('/')} className="btn-ghost btn-sm -ml-2">
+          <ArrowLeft size={14} /> Tableau de bord
+        </button>
+        <CompletedDocumentView
+          doc={doc}
+          workflow={workflow}
+          retention={retention}
+          onRefreshData={loadData}
+          onRefreshRetention={refreshRetention}
+          settings={settings}
+        />
+      </div>
+    );
+  }
+
   const allAnnotations = getAllAnnotations();
   const completedSteps = workflow?.steps.filter(s => s.status === 'completed' || s.status === 'rejected' || s.status === 'skipped') || [];
   const pendingSteps = workflow?.steps.filter(s => s.status === 'pending' || s.status === 'sent') || [];

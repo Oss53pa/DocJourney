@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Outlet, useLocation, Link } from 'react-router-dom';
+import { Menu, AlertTriangle, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import FloatingHelpButton from './FloatingHelpButton';
 import OnboardingWizard from '../onboarding/OnboardingWizard';
 import { useReminderChecker } from '../../hooks/useReminders';
 import { useRetentionProcessor } from '../../hooks/useRetention';
 import { useSettings } from '../../hooks/useSettings';
+import { useStorageQuota } from '../../hooks/useStorageQuota';
 
 const pageTitles: Record<string, string> = {
   '/': 'Tableau de bord',
@@ -20,9 +21,11 @@ const pageTitles: Record<string, string> = {
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dismissedStorageWarning, setDismissedStorageWarning] = useState(false);
   const location = useLocation();
   const { settings, loading, refresh } = useSettings();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const { quota } = useStorageQuota();
 
   // Check if onboarding is needed
   React.useEffect(() => {
@@ -70,6 +73,43 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="lg:ml-[272px] min-h-screen pt-[60px] lg:pt-0">
+        {/* Storage Warning Banner */}
+        {quota && (quota.isLow || quota.isCritical) && !dismissedStorageWarning && (
+          <div className={`px-4 py-3 flex items-center justify-between gap-3 ${
+            quota.isCritical
+              ? 'bg-red-50 border-b border-red-200'
+              : 'bg-amber-50 border-b border-amber-200'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle size={16} className={quota.isCritical ? 'text-red-600' : 'text-amber-600'} />
+              <p className={`text-sm ${quota.isCritical ? 'text-red-700' : 'text-amber-700'}`}>
+                {quota.isCritical
+                  ? `Stockage critique (${quota.usagePercent.toFixed(0)}%) - Supprimez des documents`
+                  : `Stockage limité (${quota.usagePercent.toFixed(0)}%) - ${quota.formattedRemaining} disponible`
+                }
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/settings"
+                className={`text-xs font-medium underline ${
+                  quota.isCritical ? 'text-red-700' : 'text-amber-700'
+                }`}
+              >
+                Gérer
+              </Link>
+              <button
+                onClick={() => setDismissedStorageWarning(true)}
+                className={`p-1 rounded hover:bg-white/50 ${
+                  quota.isCritical ? 'text-red-600' : 'text-amber-600'
+                }`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
           <Outlet />
         </div>

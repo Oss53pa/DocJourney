@@ -165,6 +165,17 @@
     @apply journey-dot bg-red-500 text-white;
   }
 
+  .journey-line-dashed {
+    @apply h-[3px] flex-1 mx-0.5 rounded-full;
+    background: repeating-linear-gradient(
+      90deg,
+      #d4d4d4 0px,
+      #d4d4d4 6px,
+      transparent 6px,
+      transparent 10px
+    );
+  }
+
   /* ── Section headers ── */
   .section-title {
     @apply text-[11px] font-normal uppercase tracking-[0.15em] text-neutral-400;

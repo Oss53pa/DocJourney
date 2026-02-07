@@ -13,6 +13,7 @@ interface ParticipantCardProps {
 export default function ParticipantCard({ participant, onUpdate, onManageAbsence }: ParticipantCardProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(participant.name);
+  const [email, setEmail] = useState(participant.email);
   const [phone, setPhone] = useState(participant.phone || '');
   const [department, setDepartment] = useState(participant.department || '');
   const [organization, setOrganization] = useState(participant.organization || '');
@@ -21,6 +22,7 @@ export default function ParticipantCard({ participant, onUpdate, onManageAbsence
   const handleSave = async () => {
     await updateParticipant(participant.id, {
       name,
+      email,
       phone: phone || undefined,
       department: department || undefined,
       organization: organization || undefined,
@@ -56,7 +58,17 @@ export default function ParticipantCard({ participant, onUpdate, onManageAbsence
           ) : (
             <h3 className="text-sm font-medium text-neutral-900">{participant.name}</h3>
           )}
-          <p className="text-xs text-neutral-400 mt-0.5">{participant.email}</p>
+          {editing ? (
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="input text-xs mt-1"
+              placeholder="email@example.com"
+            />
+          ) : (
+            <p className="text-xs text-neutral-400 mt-0.5">{participant.email}</p>
+          )}
         </div>
         <div className="flex gap-1 flex-shrink-0">
           <button
