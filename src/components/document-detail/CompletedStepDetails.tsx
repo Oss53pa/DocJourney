@@ -1,4 +1,4 @@
-import { Check, X, SkipForward, MessageSquare, PenTool } from 'lucide-react';
+import { Check, X, SkipForward, MessageSquare, PenTool, FileSignature } from 'lucide-react';
 import type { Workflow, WorkflowStep } from '../../types';
 import { formatDate, formatDuration, getRoleLabel, getDecisionLabel, getParticipantColor } from '../../utils';
 
@@ -129,31 +129,19 @@ function StepCard({ step, index, color, isCancelled }: {
             </div>
           )}
 
-          {/* Signature */}
+          {/* Signature indicator (image not shown for security) */}
           {step.response?.signature && (
-            <div className="flex items-center gap-2">
-              <PenTool size={12} className="text-neutral-400 flex-shrink-0" />
-              <div className="bg-white rounded-lg border border-neutral-200 p-2 inline-block">
-                <img
-                  src={step.response.signature.image}
-                  alt={`Signature de ${step.participant.name}`}
-                  className="h-10 object-contain"
-                />
-              </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
+              <PenTool size={11} className="flex-shrink-0" />
+              <span>Signature apposée</span>
             </div>
           )}
 
-          {/* Initials */}
+          {/* Initials indicator (image not shown for security) */}
           {step.response?.initials && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-neutral-400 flex-shrink-0">Paraphe</span>
-              <div className="bg-white rounded-lg border border-neutral-200 p-1.5 inline-block">
-                <img
-                  src={step.response.initials.image}
-                  alt={`Paraphe de ${step.participant.name}`}
-                  className="h-8 object-contain"
-                />
-              </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-emerald-600">
+              <FileSignature size={11} className="flex-shrink-0" />
+              <span>Paraphe apposé</span>
             </div>
           )}
 
