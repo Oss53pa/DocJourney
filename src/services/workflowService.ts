@@ -12,12 +12,18 @@ import type {
   StepResponse,
   ReturnFileData,
   Annotation,
+  CorrectionEntry,
+  ParallelParticipantResponse,
 } from '../types';
 
 export interface StepConfig {
   participant: Participant;
   role: ParticipantRole;
   instructions?: string;
+  // For parallel signatures
+  isParallel?: boolean;
+  parallelParticipants?: Participant[];
+  parallelMode?: 'all' | 'any';
 }
 
 export async function createWorkflow(
@@ -29,14 +35,29 @@ export async function createWorkflow(
 ): Promise<Workflow> {
   const id = generateId();
 
-  const workflowSteps: WorkflowStep[] = steps.map((s, i) => ({
-    id: generateId(),
-    order: i + 1,
-    participant: s.participant,
-    role: s.role,
-    status: i === 0 ? 'pending' : 'pending',
-    instructions: s.instructions,
-  }));
+  const workflowSteps: WorkflowStep[] = steps.map((s, i) => {
+    const step: WorkflowStep = {
+      id: generateId(),
+      order: i + 1,
+      participant: s.participant,
+      role: s.role,
+      status: 'pending',
+      instructions: s.instructions,
+      correctionCount: 0,
+    };
+
+    // Handle parallel signatures
+    if (s.isParallel && s.parallelParticipants && s.parallelParticipants.length > 0) {
+      step.isParallel = true;
+      step.parallelMode = s.parallelMode || 'all';
+      step.parallelParticipants = s.parallelParticipants.map(p => ({
+        participant: p,
+        status: 'pending' as const,
+      }));
+    }
+
+    return step;
+  });
 
   const workflow: Workflow = {
     id,
@@ -164,11 +185,30 @@ export async function processReturn(
     const rejDoc = await db.documents.get(workflow.documentId);
     if (rejDoc) await scheduleRetention(workflow.documentId, rejDoc.name);
   } else if (isModificationRequested) {
-    // Modification requested: mark step as rejected, pause workflow (document goes back to owner)
-    workflow.steps[stepIndex].status = 'rejected';
+    // Modification requested: mark step as correction_requested, pause workflow
+    workflow.steps[stepIndex].status = 'correction_requested';
+
+    // Track correction history
+    const correctionEntry: CorrectionEntry = {
+      requestedAt: new Date(),
+      requestedBy: step.participant,
+      reason: returnData.rejectionDetails?.reason || returnData.generalComment,
+    };
+
+    workflow.steps[stepIndex].correctionCount = (workflow.steps[stepIndex].correctionCount || 0) + 1;
+    workflow.steps[stepIndex].correctionHistory = [
+      ...(workflow.steps[stepIndex].correctionHistory || []),
+      correctionEntry,
+    ];
+
+    // Set workflow correction state
+    workflow.awaitingCorrection = true;
+    workflow.correctionRequestedAt = new Date();
+    workflow.correctionStepIndex = stepIndex;
+
     await logActivity(
-      'workflow_rejected',
-      `Modification demandée par ${step.participant.name}`,
+      'step_returned_for_correction',
+      `Correction demandée par ${step.participant.name} (${workflow.steps[stepIndex].correctionCount}e demande)`,
       workflow.documentId,
       workflowId
     );
@@ -227,18 +267,234 @@ export function getAllAnnotationsUpToStep(workflow: Workflow, stepIndex: number)
   return annotations;
 }
 
-export async function cancelWorkflow(workflowId: string) {
+export async function cancelWorkflow(
+  workflowId: string,
+  cancelledBy?: Participant,
+  reason?: string
+): Promise<{ success: boolean; message: string }> {
   const workflow = await db.workflows.get(workflowId);
-  if (!workflow) return;
+  if (!workflow) return { success: false, message: 'Workflow introuvable' };
+
+  if (workflow.completedAt || workflow.cancelledAt) {
+    return { success: false, message: 'Ce workflow est déjà terminé ou annulé' };
+  }
 
   workflow.completedAt = new Date();
+  workflow.cancelledAt = new Date();
+  workflow.cancelledBy = cancelledBy;
+  workflow.cancellationReason = reason;
+
   // Mark remaining steps as rejected
   for (const step of workflow.steps) {
-    if (step.status === 'pending' || step.status === 'sent') {
+    if (step.status === 'pending' || step.status === 'sent' || step.status === 'correction_requested') {
       step.status = 'rejected';
     }
-    // skipped steps remain as skipped
+    // skipped and completed steps remain as they are
   }
+
   await db.workflows.put(workflow);
   await updateDocumentStatus(workflow.documentId, 'rejected');
+
+  await logActivity(
+    'workflow_cancelled',
+    `Workflow annulé${cancelledBy ? ` par ${cancelledBy.name}` : ''}${reason ? `: ${reason}` : ''}`,
+    workflow.documentId,
+    workflowId
+  );
+
+  return { success: true, message: 'Workflow annulé avec succès' };
+}
+
+/**
+ * Resubmit a step after correction (used when correction was requested)
+ */
+export async function resubmitStepAfterCorrection(
+  workflowId: string,
+  stepIndex: number,
+  newDocumentContent?: string
+): Promise<{ success: boolean; message: string }> {
+  const workflow = await db.workflows.get(workflowId);
+  if (!workflow) return { success: false, message: 'Workflow introuvable' };
+
+  const step = workflow.steps[stepIndex];
+  if (step.status !== 'correction_requested') {
+    return { success: false, message: 'Cette étape n\'attend pas de correction' };
+  }
+
+  // Reset step for resubmission
+  step.status = 'pending';
+  step.sentAt = undefined;
+  step.completedAt = undefined;
+  step.response = undefined;
+
+  // Update correction history
+  if (step.correctionHistory && step.correctionHistory.length > 0) {
+    const lastCorrection = step.correctionHistory[step.correctionHistory.length - 1];
+    lastCorrection.correctedAt = new Date();
+  }
+
+  // Clear workflow correction state
+  workflow.awaitingCorrection = false;
+  workflow.correctionRequestedAt = undefined;
+  workflow.correctionStepIndex = undefined;
+  workflow.currentStepIndex = stepIndex;
+
+  // Update document content if provided
+  if (newDocumentContent) {
+    await db.documents.update(workflow.documentId, {
+      content: newDocumentContent,
+      updatedAt: new Date(),
+    });
+  }
+
+  await db.workflows.put(workflow);
+
+  await logActivity(
+    'workflow_started',
+    `Document corrigé et renvoyé à ${step.participant.name} (correction ${step.correctionCount})`,
+    workflow.documentId,
+    workflowId
+  );
+
+  return { success: true, message: 'Document renvoyé pour validation' };
+}
+
+/**
+ * Process return for parallel signature step
+ */
+export async function processParallelReturn(
+  workflowId: string,
+  returnData: ReturnFileData,
+  participantEmail: string
+): Promise<{ success: boolean; message: string }> {
+  const workflow = await db.workflows.get(workflowId);
+  if (!workflow) return { success: false, message: 'Workflow introuvable' };
+
+  const stepIndex = workflow.steps.findIndex(s => s.id === returnData.stepId);
+  if (stepIndex === -1) return { success: false, message: 'Étape introuvable' };
+
+  const step = workflow.steps[stepIndex];
+  if (!step.isParallel || !step.parallelParticipants) {
+    return { success: false, message: 'Cette étape n\'est pas une signature parallèle' };
+  }
+
+  // Find the participant in the parallel list
+  const participantIndex = step.parallelParticipants.findIndex(
+    p => p.participant.email === participantEmail
+  );
+  if (participantIndex === -1) {
+    return { success: false, message: 'Participant non trouvé dans cette étape' };
+  }
+
+  const parallelParticipant = step.parallelParticipants[participantIndex];
+  if (parallelParticipant.status === 'completed' || parallelParticipant.status === 'rejected') {
+    return { success: false, message: 'Ce participant a déjà répondu' };
+  }
+
+  const isRejected = returnData.decision === 'rejected';
+
+  const response: StepResponse = {
+    decision: returnData.decision,
+    annotations: returnData.annotations,
+    generalComment: returnData.generalComment,
+    signature: returnData.signature,
+    initials: returnData.initials,
+    rejectionDetails: returnData.rejectionDetails,
+    completedAt: new Date(returnData.completedAt),
+    returnFile: JSON.stringify(returnData),
+  };
+
+  // Update participant response
+  parallelParticipant.status = isRejected ? 'rejected' : 'completed';
+  parallelParticipant.completedAt = new Date();
+  parallelParticipant.response = response;
+
+  // Check if step is complete based on parallelMode
+  const allResponded = step.parallelParticipants.every(
+    p => p.status === 'completed' || p.status === 'rejected'
+  );
+  const anyCompleted = step.parallelParticipants.some(p => p.status === 'completed');
+  const anyRejected = step.parallelParticipants.some(p => p.status === 'rejected');
+  const allCompleted = step.parallelParticipants.every(p => p.status === 'completed');
+
+  let stepCompleted = false;
+  let stepRejected = false;
+
+  if (step.parallelMode === 'any') {
+    // First approval or rejection wins
+    if (anyCompleted) {
+      stepCompleted = true;
+      step.status = 'completed';
+      step.completedAt = new Date();
+      // Store the first approver's response as the main response
+      const firstApproval = step.parallelParticipants.find(p => p.status === 'completed');
+      if (firstApproval?.response) {
+        step.response = firstApproval.response;
+      }
+    } else if (allResponded && anyRejected) {
+      stepRejected = true;
+      step.status = 'rejected';
+    }
+  } else {
+    // All must approve
+    if (allCompleted) {
+      stepCompleted = true;
+      step.status = 'completed';
+      step.completedAt = new Date();
+      // Combine responses
+      step.response = response; // Use last response as primary
+    } else if (anyRejected) {
+      stepRejected = true;
+      step.status = 'rejected';
+    }
+  }
+
+  await logActivity(
+    'step_completed',
+    `${parallelParticipant.participant.name} a ${isRejected ? 'rejeté' : 'approuvé'} (signature parallèle)`,
+    workflow.documentId,
+    workflowId
+  );
+
+  if (stepCompleted) {
+    // Advance to next step
+    let nextIndex = stepIndex + 1;
+    while (nextIndex < workflow.steps.length && workflow.steps[nextIndex].status === 'skipped') {
+      nextIndex++;
+    }
+    if (nextIndex < workflow.steps.length) {
+      workflow.currentStepIndex = nextIndex;
+    } else {
+      workflow.completedAt = new Date();
+      await updateDocumentStatus(workflow.documentId, 'completed');
+      await logActivity('workflow_completed', 'Circuit de validation terminé', workflow.documentId, workflowId);
+      const compDoc = await db.documents.get(workflow.documentId);
+      if (compDoc) await scheduleRetention(workflow.documentId, compDoc.name);
+    }
+  } else if (stepRejected) {
+    workflow.completedAt = new Date();
+    await updateDocumentStatus(workflow.documentId, 'rejected');
+    await logActivity('workflow_rejected', 'Document rejeté (signature parallèle)', workflow.documentId, workflowId);
+    const rejDoc = await db.documents.get(workflow.documentId);
+    if (rejDoc) await scheduleRetention(workflow.documentId, rejDoc.name);
+  }
+
+  await db.workflows.put(workflow);
+
+  return {
+    success: true,
+    message: stepCompleted
+      ? 'Étape parallèle complétée'
+      : stepRejected
+        ? 'Étape parallèle rejetée'
+        : `Réponse enregistrée (${step.parallelParticipants.filter(p => p.status === 'completed' || p.status === 'rejected').length}/${step.parallelParticipants.length})`,
+  };
+}
+
+/**
+ * Get workflows awaiting correction
+ */
+export async function getWorkflowsAwaitingCorrection(): Promise<Workflow[]> {
+  const workflows = await db.workflows.toArray();
+  return workflows.filter(w => w.awaitingCorrection && !w.completedAt);
 }

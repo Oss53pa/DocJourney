@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock, FolderOpen, Globe } from 'lucide-react';
+import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Upload, Cloud, Loader2, Lock, FolderOpen, Globe } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
@@ -8,6 +8,7 @@ import RetentionSettingsSection from '../components/retention/RetentionSettingsS
 import RetentionDashboard from '../components/retention/RetentionDashboard';
 import StorageManagementSection from '../components/settings/StorageManagementSection';
 import DomainsSection from '../components/settings/DomainsSection';
+import RestoreBackupModal from '../components/settings/RestoreBackupModal';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
@@ -54,6 +55,8 @@ export default function Settings() {
   // Backup to folder
   const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [backupFolderName, setBackupFolderName] = useState<string>('');
+  // Restore
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
 
   useEffect(() => {
@@ -710,6 +713,34 @@ export default function Settings() {
               )}
             </div>
 
+            {/* Restore Backup */}
+            <div className="card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <Upload size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-neutral-900">Restaurer une sauvegarde</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">Importez un fichier de sauvegarde DocJourney</p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <strong>Restauration :</strong> Vous pouvez importer un fichier de sauvegarde pour récupérer vos données.
+                  Choisissez de remplacer toutes les données ou de les fusionner avec les données existantes.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowRestoreModal(true)}
+                className="btn-secondary btn-sm"
+              >
+                <Upload size={14} />
+                Restaurer depuis un fichier
+              </button>
+            </div>
+
             {/* Cloud Connections */}
             <CloudConnectionsSection />
 
@@ -789,6 +820,25 @@ export default function Settings() {
         )}
 
       </div>
+
+      {/* Restore Backup Modal */}
+      {showRestoreModal && (
+        <RestoreBackupModal
+          onClose={() => setShowRestoreModal(false)}
+          onRestored={() => {
+            setShowRestoreModal(false);
+            // Refresh stats
+            (async () => {
+              setStats({
+                docs: await db.documents.count(),
+                workflows: await db.workflows.count(),
+                participants: await db.participants.count(),
+                activities: await db.activityLog.count(),
+              });
+            })();
+          }}
+        />
+      )}
     </div>
   );
 }

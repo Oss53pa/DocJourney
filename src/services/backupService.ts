@@ -246,3 +246,341 @@ export function shouldAutoBackup(lastBackup: Date | undefined, frequency: 'daily
   const nextBackup = getNextBackupDate(lastBackup, frequency);
   return new Date() >= nextBackup;
 }
+
+// ============================================================
+// IMPORT / RESTORE FUNCTIONALITY
+// ============================================================
+
+export interface ImportResult {
+  success: boolean;
+  message: string;
+  stats?: {
+    documents: number;
+    workflows: number;
+    participants: number;
+    templates: number;
+    activities: number;
+  };
+  errors?: string[];
+}
+
+export interface ImportOptions {
+  mode: 'replace' | 'merge';
+  skipExisting?: boolean;
+  importDocuments?: boolean;
+  importWorkflows?: boolean;
+  importParticipants?: boolean;
+  importTemplates?: boolean;
+  importSettings?: boolean;
+  importActivityLog?: boolean;
+}
+
+/**
+ * Validate backup file structure
+ */
+export function validateBackupFile(data: unknown): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!data || typeof data !== 'object') {
+    return { valid: false, errors: ['Fichier invalide: format JSON attendu'] };
+  }
+
+  const backup = data as Record<string, unknown>;
+
+  // Check required fields
+  if (!backup.version) {
+    errors.push('Champ "version" manquant');
+  }
+  if (!backup.createdAt) {
+    errors.push('Champ "createdAt" manquant');
+  }
+  if (!Array.isArray(backup.documents)) {
+    errors.push('Champ "documents" invalide ou manquant');
+  }
+  if (!Array.isArray(backup.workflows)) {
+    errors.push('Champ "workflows" invalide ou manquant');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Parse backup file from File object
+ */
+export async function parseBackupFile(file: File): Promise<{ data: BackupData | null; error?: string }> {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    const validation = validateBackupFile(data);
+    if (!validation.valid) {
+      return { data: null, error: validation.errors.join(', ') };
+    }
+
+    return { data: data as BackupData };
+  } catch (err) {
+    return { data: null, error: `Erreur de lecture: ${(err as Error).message}` };
+  }
+}
+
+/**
+ * Get backup file info without importing
+ */
+export function getBackupInfo(backup: BackupData): {
+  version: string;
+  createdAt: Date;
+  documentCount: number;
+  workflowCount: number;
+  participantCount: number;
+  templateCount: number;
+  activityCount: number;
+} {
+  return {
+    version: backup.version,
+    createdAt: new Date(backup.createdAt),
+    documentCount: backup.documents?.length || 0,
+    workflowCount: backup.workflows?.length || 0,
+    participantCount: backup.participants?.length || 0,
+    templateCount: backup.workflowTemplates?.length || 0,
+    activityCount: backup.activityLog?.length || 0,
+  };
+}
+
+/**
+ * Import backup data into the database
+ */
+export async function importBackup(
+  backup: BackupData,
+  options: ImportOptions = { mode: 'replace' }
+): Promise<ImportResult> {
+  const errors: string[] = [];
+  const stats = {
+    documents: 0,
+    workflows: 0,
+    participants: 0,
+    templates: 0,
+    activities: 0,
+  };
+
+  try {
+    // If replace mode, clear existing data first
+    if (options.mode === 'replace') {
+      if (options.importDocuments !== false) {
+        await db.documents.clear();
+        await db.validationReports.clear();
+      }
+      if (options.importWorkflows !== false) {
+        await db.workflows.clear();
+      }
+      if (options.importParticipants !== false) {
+        await db.participants.clear();
+        await db.participantGroups.clear();
+      }
+      if (options.importTemplates !== false) {
+        await db.workflowTemplates.clear();
+      }
+      if (options.importActivityLog !== false) {
+        await db.activityLog.clear();
+      }
+      if (options.importSettings !== false) {
+        // Keep settings but merge with backup
+      }
+      // Clear other tables
+      await db.reminders.clear();
+      await db.documentGroups.clear();
+      await db.documentRetention.clear();
+    }
+
+    // Import documents
+    if (options.importDocuments !== false && backup.documents?.length > 0) {
+      for (const doc of backup.documents) {
+        try {
+          if (options.mode === 'merge' && options.skipExisting) {
+            const existing = await db.documents.get((doc as { id: string }).id);
+            if (existing) continue;
+          }
+          await db.documents.put(doc as never);
+          stats.documents++;
+        } catch (err) {
+          errors.push(`Document: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    // Import workflows
+    if (options.importWorkflows !== false && backup.workflows?.length > 0) {
+      for (const wf of backup.workflows) {
+        try {
+          if (options.mode === 'merge' && options.skipExisting) {
+            const existing = await db.workflows.get((wf as { id: string }).id);
+            if (existing) continue;
+          }
+          await db.workflows.put(wf as never);
+          stats.workflows++;
+        } catch (err) {
+          errors.push(`Workflow: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    // Import participants
+    if (options.importParticipants !== false && backup.participants?.length > 0) {
+      for (const p of backup.participants) {
+        try {
+          if (options.mode === 'merge' && options.skipExisting) {
+            const existing = await db.participants.get((p as { id: string }).id);
+            if (existing) continue;
+          }
+          await db.participants.put(p as never);
+          stats.participants++;
+        } catch (err) {
+          errors.push(`Participant: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    // Import workflow templates
+    if (options.importTemplates !== false && backup.workflowTemplates?.length > 0) {
+      for (const t of backup.workflowTemplates) {
+        try {
+          if (options.mode === 'merge' && options.skipExisting) {
+            const existing = await db.workflowTemplates.get((t as { id: string }).id);
+            if (existing) continue;
+          }
+          await db.workflowTemplates.put(t as never);
+          stats.templates++;
+        } catch (err) {
+          errors.push(`Template: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    // Import activity log
+    if (options.importActivityLog !== false && backup.activityLog?.length > 0) {
+      for (const a of backup.activityLog) {
+        try {
+          await db.activityLog.put(a as never);
+          stats.activities++;
+        } catch (err) {
+          // Activity log errors are not critical
+        }
+      }
+    }
+
+    // Import other data
+    if (backup.documentGroups?.length > 0) {
+      for (const g of backup.documentGroups) {
+        try {
+          await db.documentGroups.put(g as never);
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+
+    if (backup.reminders?.length > 0) {
+      for (const r of backup.reminders) {
+        try {
+          await db.reminders.put(r as never);
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+
+    if (backup.documentRetention?.length > 0) {
+      for (const r of backup.documentRetention) {
+        try {
+          await db.documentRetention.put(r as never);
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+
+    if (backup.authorizedDomains?.length > 0) {
+      for (const d of backup.authorizedDomains) {
+        try {
+          await db.authorizedDomains.put(d as never);
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+
+    // Import settings (merge with existing)
+    if (options.importSettings !== false && backup.settings?.length > 0) {
+      const backupSettings = backup.settings[0] as Record<string, unknown>;
+      const existingSettings = await db.settings.get('default');
+
+      if (backupSettings) {
+        // Preserve sensitive settings from existing
+        const mergedSettings = {
+          ...backupSettings,
+          id: 'default',
+          // Preserve API keys and local configuration
+          emailjsServiceId: existingSettings?.emailjsServiceId || backupSettings.emailjsServiceId,
+          emailjsTemplateId: existingSettings?.emailjsTemplateId || backupSettings.emailjsTemplateId,
+          emailjsPublicKey: existingSettings?.emailjsPublicKey || backupSettings.emailjsPublicKey,
+          firebaseApiKey: existingSettings?.firebaseApiKey || backupSettings.firebaseApiKey,
+          firebaseDatabaseURL: existingSettings?.firebaseDatabaseURL || backupSettings.firebaseDatabaseURL,
+          firebaseProjectId: existingSettings?.firebaseProjectId || backupSettings.firebaseProjectId,
+        };
+
+        await db.settings.put(mergedSettings as never);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Import réussi: ${stats.documents} documents, ${stats.workflows} workflows, ${stats.participants} participants`,
+      stats,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `Erreur d'import: ${(err as Error).message}`,
+      errors: [...errors, (err as Error).message],
+    };
+  }
+}
+
+/**
+ * Trigger file picker and import backup
+ */
+export async function selectAndImportBackup(
+  options: ImportOptions = { mode: 'replace' }
+): Promise<ImportResult> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) {
+        resolve({ success: false, message: 'Aucun fichier sélectionné' });
+        return;
+      }
+
+      const { data, error } = await parseBackupFile(file);
+      if (!data) {
+        resolve({ success: false, message: error || 'Erreur de lecture du fichier' });
+        return;
+      }
+
+      const result = await importBackup(data, options);
+      resolve(result);
+    };
+
+    input.oncancel = () => {
+      resolve({ success: false, message: 'Annulé' });
+    };
+
+    input.click();
+  });
+}

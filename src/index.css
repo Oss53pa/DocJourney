@@ -165,6 +165,15 @@
     @apply journey-dot bg-red-500 text-white;
   }
 
+  .journey-dot-correction {
+    @apply journey-dot bg-amber-500 text-white;
+    animation: dotPulse 2.5s ease-in-out infinite;
+  }
+
+  .journey-dot-parallel {
+    @apply journey-dot bg-purple-500 text-white;
+  }
+
   .journey-line-dashed {
     @apply h-[3px] flex-1 mx-0.5 rounded-full;
     background: repeating-linear-gradient(
