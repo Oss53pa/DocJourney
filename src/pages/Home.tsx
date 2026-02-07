@@ -67,6 +67,9 @@ export default function Home() {
         <h1 className="font-brand text-6xl sm:text-7xl text-neutral-900 mb-3">
           DocJourney
         </h1>
+        <p className="italic text-neutral-400 text-sm sm:text-base mb-2">
+          Le voyage du document à travers son circuit de validation
+        </p>
         <p className="text-neutral-500 text-base sm:text-lg mb-12">
           Gestion de validation documentaire
         </p>
