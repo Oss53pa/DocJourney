@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Activity as ActivityIcon, FileUp, GitBranch, Send, Download, CheckCircle2,
   XCircle, FileOutput, Archive, Clock, Layout, Trash2, Bell, FolderKanban, Cloud, Unlink,
-  Search, Filter, FileText, ChevronDown, ExternalLink, SkipForward, RefreshCw,
+  Search, Filter, FileText, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, SkipForward, RefreshCw,
   BarChart3, X, FileDown
 } from 'lucide-react';
 import {
@@ -107,7 +107,8 @@ export default function Activity() {
   const [category, setCategory] = useState<ActivityCategory | 'all'>('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   // Export
   const [showExport, setShowExport] = useState(false);
@@ -137,7 +138,7 @@ export default function Activity() {
     setActivities(data);
     setStats(statsData);
     setLoading(false);
-    setVisibleCount(50);
+    setCurrentPage(1);
   }, [period, category, search]);
 
   useEffect(() => {
@@ -181,10 +182,24 @@ export default function Activity() {
     );
   }
 
-  // Flatten and limit the grouped entries for display
-  const allVisible = activities.slice(0, visibleCount);
-  const visibleGrouped = groupActivitiesByDate(allVisible);
-  const hasMore = activities.length > visibleCount;
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(activities.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const pageActivities = activities.slice(startIndex, startIndex + itemsPerPage);
+  const visibleGrouped = groupActivitiesByDate(pageActivities);
+
+  // Generate page numbers to display (max 5 around current)
+  const getPageNumbers = (): (number | 'ellipsis')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | 'ellipsis')[] = [1];
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    if (start > 2) pages.push('ellipsis');
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (end < totalPages - 1) pages.push('ellipsis');
+    pages.push(totalPages);
+    return pages;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -482,16 +497,45 @@ export default function Activity() {
             </section>
           ))}
 
-          {/* Load more */}
-          {hasMore && (
-            <div className="text-center pt-2">
-              <button
-                onClick={() => setVisibleCount(c => c + 50)}
-                className="btn-secondary"
-              >
-                <ChevronDown size={14} />
-                Voir plus ({activities.length - visibleCount} restant{activities.length - visibleCount > 1 ? 's' : ''})
-              </button>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+              <p className="text-xs text-neutral-400">
+                {startIndex + 1}–{Math.min(startIndex + itemsPerPage, activities.length)} sur {activities.length} activités
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={currentPage === 1}
+                  className="btn-icon hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {getPageNumbers().map((page, i) =>
+                  page === 'ellipsis' ? (
+                    <span key={`e${i}`} className="px-1 text-neutral-400 text-sm">…</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`w-8 h-8 rounded-lg text-sm transition-colors ${
+                        currentPage === page
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={currentPage === totalPages}
+                  className="btn-icon hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
           )}
         </div>
