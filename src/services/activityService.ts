@@ -52,6 +52,8 @@ const categoryMap: Record<ActivityType, ActivityCategory> = {
   retention_extended: 'document',
   retention_restored: 'document',
   retention_backed_up: 'document',
+  domain_added: 'organization',
+  domain_removed: 'organization',
 };
 
 export function getActivityCategory(type: ActivityType): ActivityCategory {

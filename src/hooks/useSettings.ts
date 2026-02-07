@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   retentionNotifyDaysBefore: 2,
   retentionAutoBackupToCloud: true,
   retentionExcludeStatuses: [] as DocumentStatus[],
+  // Domain whitelist
+  defaultAllowSubdomains: true,
+  domainCaseSensitive: false,
 };
 
 export function useSettings() {

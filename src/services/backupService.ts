@@ -12,6 +12,7 @@ export interface BackupData {
   activityLog: unknown[];
   settings: unknown[];
   documentRetention: unknown[];
+  authorizedDomains: unknown[];
 }
 
 // Store directory handle in IndexedDB
@@ -30,6 +31,7 @@ export async function createBackup(): Promise<BackupData> {
     activityLog: await db.activityLog.toArray(),
     settings: await db.settings.toArray(),
     documentRetention: await db.documentRetention.toArray(),
+    authorizedDomains: await db.authorizedDomains.toArray(),
   };
   return backup;
 }

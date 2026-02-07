@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock, FolderOpen } from 'lucide-react';
+import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail, HardDrive, Download, Cloud, Loader2, Lock, FolderOpen, Globe } from 'lucide-react';
 import TemplatesSection from '../components/settings/TemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
@@ -7,18 +7,20 @@ import SecuritySettingsSection from '../components/settings/SecuritySettingsSect
 import RetentionSettingsSection from '../components/retention/RetentionSettingsSection';
 import RetentionDashboard from '../components/retention/RetentionDashboard';
 import StorageManagementSection from '../components/settings/StorageManagementSection';
+import DomainsSection from '../components/settings/DomainsSection';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
 import { testFirebaseConnection } from '../services/firebaseSyncService';
 
-type TabId = 'services' | 'models' | 'data' | 'security' | 'about';
+type TabId = 'services' | 'models' | 'data' | 'security' | 'domains' | 'about';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'services', label: 'Services', icon: <Mail size={15} /> },
   { id: 'models', label: 'Modèles', icon: <Layout size={15} /> },
   { id: 'data', label: 'Données', icon: <Database size={15} /> },
   { id: 'security', label: 'Sécurité', icon: <Lock size={15} /> },
+  { id: 'domains', label: 'Domaines', icon: <Globe size={15} /> },
   { id: 'about', label: 'À propos', icon: <Shield size={15} /> },
 ];
 
@@ -171,6 +173,7 @@ export default function Settings() {
     await db.documentGroups.clear();
     await db.cloudConnections.clear();
     await db.documentRetention.clear();
+    await db.authorizedDomains.clear();
     setShowClearConfirm(false);
     setStats({ docs: 0, workflows: 0, participants: 0, activities: 0 });
   };
@@ -756,6 +759,11 @@ export default function Settings() {
         {/* ====== SÉCURITÉ ====== */}
         {activeTab === 'security' && (
           <SecuritySettingsSection />
+        )}
+
+        {/* ====== DOMAINES ====== */}
+        {activeTab === 'domains' && (
+          <DomainsSection />
         )}
 
         {/* ====== À PROPOS ====== */}

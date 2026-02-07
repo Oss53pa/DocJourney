@@ -12,6 +12,7 @@ import type {
   CloudConnection,
   ParticipantGroup,
   DocumentRetention,
+  AuthorizedDomain,
 } from '../types';
 
 export class DocJourneyDB extends Dexie {
@@ -27,6 +28,7 @@ export class DocJourneyDB extends Dexie {
   cloudConnections!: Table<CloudConnection, string>;
   participantGroups!: Table<ParticipantGroup, string>;
   documentRetention!: Table<DocumentRetention, string>;
+  authorizedDomains!: Table<AuthorizedDomain, string>;
 
   constructor() {
     super('DocJourneyDB');
@@ -81,6 +83,22 @@ export class DocJourneyDB extends Dexie {
       participantGroups: 'id, name, createdAt',
       documentRetention: 'id, documentId, scheduledDeletionAt, isProtected, cloudBackupStatus',
     });
+
+    this.version(5).stores({
+      documents: 'id, name, type, status, workflowId, createdAt, updatedAt',
+      workflows: 'id, documentId, currentStepIndex, createdAt',
+      validationReports: 'id, workflowId, documentId, generatedAt',
+      participants: 'id, email, name',
+      activityLog: 'id, timestamp, type, documentId, workflowId',
+      settings: 'id',
+      workflowTemplates: 'id, name, createdAt, usageCount',
+      reminders: 'id, documentId, workflowId, stepId, type, scheduledAt, status',
+      documentGroups: 'id, name, createdAt, updatedAt',
+      cloudConnections: 'id, provider, connectedAt',
+      participantGroups: 'id, name, createdAt',
+      documentRetention: 'id, documentId, scheduledDeletionAt, isProtected, cloudBackupStatus',
+      authorizedDomains: 'id, domain, isActive, createdAt',
+    });
   }
 }
 
@@ -128,6 +146,12 @@ export async function initializeDB() {
         updates.retentionNotifyDaysBefore = 2;
         updates.retentionAutoBackupToCloud = true;
         updates.retentionExcludeStatuses = [];
+      }
+
+      // Migration Domain whitelist
+      if (existingSettings.defaultAllowSubdomains === undefined) {
+        updates.defaultAllowSubdomains = true;
+        updates.domainCaseSensitive = false;
       }
 
       // Migration Firebase Sync
@@ -190,6 +214,31 @@ export async function initializeDB() {
         usageCount: 0,
       },
     ]);
+  }
+
+  // Seed default authorized domains
+  const domainCount = await db.authorizedDomains.count();
+  if (domainCount === 0) {
+    const { v4: uuid } = await import('uuid');
+    const now = new Date();
+    const defaultDomains: { domain: string; description: string }[] = [
+      { domain: 'cosmos-yopougon.com', description: 'Cosmos Yopougon' },
+      { domain: 'cosmos-angre.com', description: 'Cosmos Angré' },
+      { domain: 'interbat.com', description: 'Interbat' },
+      { domain: 'rocklanecapital.com', description: 'Rocklane Capital' },
+      { domain: 'praedium-tech.com', description: 'Praedium Tech' },
+    ];
+    await db.authorizedDomains.bulkAdd(
+      defaultDomains.map(d => ({
+        id: uuid(),
+        domain: d.domain,
+        description: d.description,
+        allowSubdomains: true,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    );
   }
 
   // Clean up corrupted activity entries (where description is an object instead of string)

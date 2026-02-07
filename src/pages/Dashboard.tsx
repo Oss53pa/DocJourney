@@ -61,6 +61,8 @@ const activityLabels: Partial<Record<ActivityType, string>> = {
   retention_restored: 'Document restauré',
   retention_backed_up: 'Backup pré-suppression',
   retention_expired: 'Rétention expirée',
+  domain_added: 'Domaine ajouté',
+  domain_removed: 'Domaine supprimé',
 };
 
 export default function Dashboard() {

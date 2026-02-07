@@ -29,7 +29,8 @@ export type StepStatus =
   | 'sent'
   | 'completed'
   | 'rejected'
-  | 'skipped';
+  | 'skipped'
+  | 'correction_requested';  // Waiting for owner to correct and resubmit
 
 export type StepDecision =
   | 'approved'
@@ -93,7 +94,10 @@ export type ActivityType =
   | 'retention_protected'
   | 'retention_extended'
   | 'retention_restored'
-  | 'retention_backed_up';
+  | 'retention_backed_up'
+  // Domain whitelist events
+  | 'domain_added'
+  | 'domain_removed';
 
 // ---- Document ----
 export interface DocumentMetadata {
@@ -216,6 +220,25 @@ export interface StepResponse {
   returnFile: string;
 }
 
+// Correction history entry
+export interface CorrectionEntry {
+  requestedAt: Date;
+  requestedBy: Participant;
+  reason?: string;
+  correctedAt?: Date;
+  resubmittedAt?: Date;
+}
+
+// Parallel signature participant response
+export interface ParallelParticipantResponse {
+  participant: Participant;
+  status: 'pending' | 'sent' | 'completed' | 'rejected';
+  sentAt?: Date;
+  completedAt?: Date;
+  response?: StepResponse;
+  verification?: import('./verification.types').ParticipantVerification;
+}
+
 export interface WorkflowStep {
   id: string;
   order: number;
@@ -233,6 +256,13 @@ export interface WorkflowStep {
   verification?: import('./verification.types').ParticipantVerification;
   packetExpiration?: import('./verification.types').PacketExpiration;
   readReceipt?: import('./verification.types').ReadReceipt;
+  // Correction loop
+  correctionCount?: number;
+  correctionHistory?: CorrectionEntry[];
+  // Parallel signatures (multiple participants for same step)
+  isParallel?: boolean;
+  parallelParticipants?: ParallelParticipantResponse[];
+  parallelMode?: 'all' | 'any';  // all = everyone must approve, any = first approval wins
 }
 
 // ---- Workflow ----
@@ -247,6 +277,14 @@ export interface Workflow {
   owner: Participant & { organization?: string };
   deadline?: Date;
   stepDeadlines?: Record<string, Date>;
+  // Cancellation
+  cancelledAt?: Date;
+  cancelledBy?: Participant;
+  cancellationReason?: string;
+  // Correction loop state
+  awaitingCorrection?: boolean;
+  correctionRequestedAt?: Date;
+  correctionStepIndex?: number;
 }
 
 // ---- Validation Report ----
@@ -322,6 +360,9 @@ export interface AppSettings {
   retentionNotifyDaysBefore?: number;
   retentionAutoBackupToCloud?: boolean;
   retentionExcludeStatuses?: DocumentStatus[];
+  // Domain whitelist
+  defaultAllowSubdomains?: boolean;  // default: true
+  domainCaseSensitive?: boolean;     // default: false
 }
 
 // ---- Package Data (for HTML export) ----
@@ -517,4 +558,15 @@ export interface DocumentRetention {
   deletedAt?: Date;
   deletionMode?: RetentionMode;
   extensionCount: number;
+}
+
+// ---- Authorized Domains ----
+export interface AuthorizedDomain {
+  id: string;
+  domain: string;           // ex: "cosmos-yopougon.com"
+  description?: string;     // ex: "Cosmos Yopougon"
+  allowSubdomains: boolean; // true => *.domain matches
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
