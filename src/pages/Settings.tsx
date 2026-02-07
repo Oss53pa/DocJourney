@@ -3,6 +3,7 @@ import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail
 import TemplatesSection from '../components/settings/TemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
+import SecuritySettingsSection from '../components/settings/SecuritySettingsSection';
 import RetentionSettingsSection from '../components/retention/RetentionSettingsSection';
 import RetentionDashboard from '../components/retention/RetentionDashboard';
 import { useSettings } from '../hooks/useSettings';
@@ -10,12 +11,13 @@ import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
 import { testFirebaseConnection } from '../services/firebaseSyncService';
 
-type TabId = 'services' | 'models' | 'data' | 'about';
+type TabId = 'services' | 'models' | 'data' | 'security' | 'about';
 
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: 'services', label: 'Services', icon: <Mail size={15} /> },
   { id: 'models', label: 'Modèles', icon: <Layout size={15} /> },
   { id: 'data', label: 'Données', icon: <Database size={15} /> },
+  { id: 'security', label: 'Sécurité', icon: <Lock size={15} /> },
   { id: 'about', label: 'À propos', icon: <Shield size={15} /> },
 ];
 
