@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
-import { Menu, AlertTriangle, X } from 'lucide-react';
+import { Menu, AlertTriangle, X, WifiOff } from 'lucide-react';
 import Sidebar from './Sidebar';
 import FloatingHelpButton from './FloatingHelpButton';
 import OnboardingWizard from '../onboarding/OnboardingWizard';
+import InstallPrompt, { useOnlineStatus } from '../pwa/InstallPrompt';
 import { useReminderChecker } from '../../hooks/useReminders';
 import { useRetentionProcessor } from '../../hooks/useRetention';
 import { useSettings } from '../../hooks/useSettings';
@@ -26,6 +27,7 @@ export default function AppLayout() {
   const { settings, loading, refresh } = useSettings();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const { quota } = useStorageQuota();
+  const isOnline = useOnlineStatus();
 
   // Check if onboarding is needed
   React.useEffect(() => {
@@ -73,6 +75,14 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="lg:ml-[272px] min-h-screen pt-[60px] lg:pt-0">
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="px-4 py-2 bg-neutral-900 text-white flex items-center justify-center gap-2 text-sm">
+            <WifiOff size={14} />
+            <span>Vous êtes hors ligne - Les données locales restent accessibles</span>
+          </div>
+        )}
+
         {/* Storage Warning Banner */}
         {quota && (quota.isLow || quota.isCritical) && !dismissedStorageWarning && (
           <div className={`px-4 py-3 flex items-center justify-between gap-3 ${
@@ -113,9 +123,18 @@ export default function AppLayout() {
         <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
           <Outlet />
         </div>
+
+        <footer className="px-4 sm:px-6 lg:px-8 py-4 border-t border-neutral-200/60 text-center">
+          <p className="text-[11px] text-neutral-400">
+            Développé par <span className="font-medium text-neutral-500">Pamela Atokouna</span> — Tous droits réservés
+          </p>
+        </footer>
       </main>
 
       <FloatingHelpButton />
+
+      {/* PWA Install Prompt */}
+      <InstallPrompt />
     </div>
   );
 }
