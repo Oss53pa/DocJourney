@@ -1,5 +1,44 @@
 import { db } from '../db';
+import { generateId, getParticipantColor } from '../utils';
 import type { ParticipantRecord } from '../types';
+
+export interface CreateParticipantData {
+  name: string;
+  email: string;
+  organization?: string;
+  phone?: string;
+  department?: string;
+  notes?: string;
+}
+
+export async function createParticipant(data: CreateParticipantData): Promise<ParticipantRecord> {
+  // Check if email already exists
+  const existing = await db.participants.where('email').equals(data.email).first();
+  if (existing) {
+    throw new Error('Un contact avec cet email existe déjà');
+  }
+
+  // Get count for color assignment
+  const count = await db.participants.count();
+
+  const participant: ParticipantRecord = {
+    id: generateId(),
+    name: data.name,
+    email: data.email,
+    organization: data.organization,
+    phone: data.phone,
+    department: data.department,
+    notes: data.notes,
+    color: getParticipantColor(count),
+    firstUsed: new Date(),
+    lastUsed: new Date(),
+    totalWorkflows: 0,
+    roles: [],
+  };
+
+  await db.participants.add(participant);
+  return participant;
+}
 
 export async function getAllParticipants(): Promise<ParticipantRecord[]> {
   return db.participants.orderBy('name').toArray();
