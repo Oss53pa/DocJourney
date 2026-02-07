@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileUp, Archive, Settings, Activity,
-  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2, Loader2
+  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2, Loader2, Home
 } from 'lucide-react';
 import { getNewActivityCount } from '../../services/activityService';
 import { useSettings } from '../../hooks/useSettings';
@@ -10,6 +10,7 @@ import { requestNotificationPermission } from '../../services/reminderService';
 import { selectBackupFolder, clearBackupFolder, isFileSystemAccessSupported } from '../../services/backupService';
 
 const navItems = [
+  { to: '/home', icon: Home, label: 'Accueil', end: true },
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
   { to: '/new', icon: FileUp, label: 'Nouveau document', end: false },
   { to: '/documents', icon: FolderOpen, label: 'Documents', end: false },

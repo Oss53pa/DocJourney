@@ -10,6 +10,7 @@ import Archives from './pages/Archives';
 import Settings from './pages/Settings';
 import GroupDetail from './pages/GroupDetail';
 import Contacts from './pages/Contacts';
+import Home from './pages/Home';
 import { initializeDB } from './db';
 
 function AppLoader({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export default function App() {
     <BrowserRouter>
       <AppLoader>
         <Routes>
+          <Route path="/home" element={<Home />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/new" element={<NewDocument />} />
