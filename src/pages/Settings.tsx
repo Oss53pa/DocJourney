@@ -3,6 +3,8 @@ import { Save, CheckCircle2, Trash2, AlertCircle, Database, Shield, Layout, Mail
 import TemplatesSection from '../components/settings/TemplatesSection';
 import CloudConnectionsSection from '../components/settings/CloudConnectionsSection';
 import WorkflowTemplatesSection from '../components/settings/WorkflowTemplatesSection';
+import RetentionSettingsSection from '../components/retention/RetentionSettingsSection';
+import RetentionDashboard from '../components/retention/RetentionDashboard';
 import { useSettings } from '../hooks/useSettings';
 import { db } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
@@ -165,6 +167,7 @@ export default function Settings() {
     await db.reminders.clear();
     await db.documentGroups.clear();
     await db.cloudConnections.clear();
+    await db.documentRetention.clear();
     setShowClearConfirm(false);
     setStats({ docs: 0, workflows: 0, participants: 0, activities: 0 });
   };
@@ -700,6 +703,12 @@ export default function Settings() {
 
             {/* Cloud Connections */}
             <CloudConnectionsSection />
+
+            {/* Retention Settings */}
+            <RetentionSettingsSection />
+
+            {/* Retention Dashboard */}
+            <RetentionDashboard />
 
             {/* Danger Zone */}
             <div className="card p-5 sm:p-6 space-y-5 border-red-200">

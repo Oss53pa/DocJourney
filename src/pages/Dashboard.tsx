@@ -53,6 +53,14 @@ const activityLabels: Partial<Record<ActivityType, string>> = {
   cloud_disconnected: 'Cloud déconnecté',
   step_skipped: 'Étape ignorée',
   step_reassigned: 'Étape réassignée',
+  retention_scheduled: 'Rétention planifiée',
+  retention_warning: 'Alerte rétention',
+  retention_deleted: 'Contenu supprimé',
+  retention_protected: 'Document protégé',
+  retention_extended: 'Rétention prolongée',
+  retention_restored: 'Document restauré',
+  retention_backed_up: 'Backup pré-suppression',
+  retention_expired: 'Rétention expirée',
 };
 
 export default function Dashboard() {

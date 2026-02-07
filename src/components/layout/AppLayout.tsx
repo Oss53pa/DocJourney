@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import FloatingHelpButton from './FloatingHelpButton';
 import OnboardingWizard from '../onboarding/OnboardingWizard';
 import { useReminderChecker } from '../../hooks/useReminders';
+import { useRetentionProcessor } from '../../hooks/useRetention';
 import { useSettings } from '../../hooks/useSettings';
 
 const pageTitles: Record<string, string> = {
@@ -32,6 +33,9 @@ export default function AppLayout() {
 
   // Background reminder checker
   useReminderChecker(settings.remindersEnabled ?? false);
+
+  // Background retention processor
+  useRetentionProcessor(settings.retentionEnabled ?? false);
 
   const pageTitle = pageTitles[location.pathname] || '';
 

@@ -100,12 +100,42 @@ var state = {
   sigAnimFrame: null,
   initialsPoints: [],
   initialsLastPoint: null,
-  initialsAnimFrame: null
+  initialsAnimFrame: null,
+  // OTP Verification state
+  otpVerified: false,
+  otpAttempts: 0,
+  otpMaxAttempts: 3,
+  otpCooldown: 0,
+  otpCooldownInterval: null
 };
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
   try {
+    // Check if OTP verification is required
+    if (DATA.verification && DATA.verification.required) {
+      initOTPVerification();
+      return; // Don't initialize main content until verified
+    }
+
+    // Check if packet is expired
+    if (DATA.expiration) {
+      var expiresAt = new Date(DATA.expiration.expiresAt);
+      if (new Date() > expiresAt) {
+        showExpiredScreen();
+        return;
+      }
+    }
+
+    initMainContent();
+  } catch(e) { console.error('Init error:', e); }
+});
+
+function initMainContent() {
+  try {
+    var mainContent = document.getElementById('mainContent');
+    if (mainContent) mainContent.style.display = '';
+
     renderDocument();
     renderAnnotationOverlay();
     setupSignature();
@@ -119,11 +149,12 @@ document.addEventListener('DOMContentLoaded', function() {
     setupKeyboard();
     setupResizeHandler();
     verifyDocumentLock();
+    recordPacketOpening();
     // Attach viewport click (avoids inline onclick timing issues in srcdoc iframes)
     var vp = document.getElementById('viewerViewport');
     if (vp) vp.addEventListener('click', function(e) { handleViewportClick(e); });
-  } catch(e) { console.error('Init error:', e); }
-});
+  } catch(e) { console.error('Init main content error:', e); }
+}
 
 // ===== TAB SYSTEM =====
 function switchTab(tab, isMobile) {
@@ -2849,6 +2880,418 @@ async function computeDocumentHash(content) {
     hash = hash & hash;
   }
   return 'fallback-' + Math.abs(hash).toString(16);
+}
+
+// ===== OTP VERIFICATION =====
+function initOTPVerification() {
+  state.otpMaxAttempts = 3;
+  state.otpAttempts = 0;
+  state.otpCooldown = 60; // Initial cooldown
+
+  // Setup OTP input handlers
+  var inputs = document.querySelectorAll('.otp-digit');
+  inputs.forEach(function(input, idx) {
+    input.addEventListener('input', function(e) { handleOTPInput(e, idx); });
+    input.addEventListener('keydown', function(e) { handleOTPKeydown(e, idx); });
+    input.addEventListener('paste', function(e) { handleOTPPaste(e); });
+    input.addEventListener('focus', function() { input.select(); });
+  });
+
+  // Focus first input
+  if (inputs[0]) inputs[0].focus();
+
+  // Start cooldown timer
+  startOTPCooldown();
+  updateOTPVerifyButton();
+}
+
+function handleOTPInput(e, idx) {
+  var input = e.target;
+  var value = input.value.replace(/\\D/g, '');
+  input.value = value.slice(-1);
+
+  // Clear error state
+  document.querySelectorAll('.otp-digit').forEach(function(i) { i.classList.remove('error'); });
+  var errorEl = document.getElementById('otpError');
+  if (errorEl) errorEl.style.display = 'none';
+
+  // Move to next input
+  if (value && idx < 5) {
+    var nextInput = document.querySelector('.otp-digit[data-index="' + (idx + 1) + '"]');
+    if (nextInput) nextInput.focus();
+  }
+
+  updateOTPVerifyButton();
+
+  // Auto-verify when complete
+  var code = getOTPCode();
+  if (code.length === 6) {
+    setTimeout(function() { verifyOTP(); }, 100);
+  }
+}
+
+function handleOTPKeydown(e, idx) {
+  if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+    var prevInput = document.querySelector('.otp-digit[data-index="' + (idx - 1) + '"]');
+    if (prevInput) {
+      prevInput.focus();
+      prevInput.value = '';
+    }
+  } else if (e.key === 'ArrowLeft' && idx > 0) {
+    e.preventDefault();
+    var prev = document.querySelector('.otp-digit[data-index="' + (idx - 1) + '"]');
+    if (prev) prev.focus();
+  } else if (e.key === 'ArrowRight' && idx < 5) {
+    e.preventDefault();
+    var next = document.querySelector('.otp-digit[data-index="' + (idx + 1) + '"]');
+    if (next) next.focus();
+  }
+}
+
+function handleOTPPaste(e) {
+  e.preventDefault();
+  var pastedData = (e.clipboardData || window.clipboardData).getData('text').replace(/\\D/g, '').slice(0, 6);
+  var inputs = document.querySelectorAll('.otp-digit');
+
+  for (var i = 0; i < pastedData.length; i++) {
+    if (inputs[i]) inputs[i].value = pastedData[i];
+  }
+
+  updateOTPVerifyButton();
+
+  if (pastedData.length === 6) {
+    setTimeout(function() { verifyOTP(); }, 100);
+  }
+}
+
+function getOTPCode() {
+  var code = '';
+  document.querySelectorAll('.otp-digit').forEach(function(input) {
+    code += input.value;
+  });
+  return code;
+}
+
+function updateOTPVerifyButton() {
+  var btn = document.getElementById('otpVerifyBtn');
+  var code = getOTPCode();
+  if (btn) btn.disabled = code.length !== 6;
+}
+
+async function verifyOTP() {
+  var code = getOTPCode();
+  if (code.length !== 6) return;
+
+  var btn = document.getElementById('otpVerifyBtn');
+  var spinner = document.getElementById('otpSpinner');
+  var btnText = document.getElementById('otpVerifyText');
+
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'block';
+  if (btnText) btnText.textContent = 'V\\u00e9rification...';
+
+  try {
+    // Verify via Firebase
+    var result = await verifyOTPViaFirebase(code);
+
+    if (result.valid) {
+      showOTPSuccess();
+    } else {
+      handleOTPError(result.reason, result.remainingAttempts);
+    }
+  } catch(e) {
+    console.error('OTP verification error:', e);
+    handleOTPError('CONNECTION_ERROR', state.otpMaxAttempts - state.otpAttempts);
+  }
+
+  if (spinner) spinner.style.display = 'none';
+  if (btnText) btnText.textContent = 'V\\u00e9rifier';
+}
+
+async function verifyOTPViaFirebase(code) {
+  if (!DATA.sync || !DATA.sync.enabled) {
+    // No Firebase - cannot verify OTP properly
+    return { valid: false, reason: 'NO_FIREBASE' };
+  }
+
+  try {
+    // Load Firebase if not loaded
+    if (!window._firebaseApp) {
+      await loadFirebase();
+    }
+
+    var database = firebase.database();
+    var stepId = DATA.verification.stepId;
+
+    // Get verification data
+    var snapshot = await database.ref('verifications/' + stepId).once('value');
+    var verification = snapshot.val();
+
+    if (!verification) {
+      return { valid: false, reason: 'NOT_FOUND' };
+    }
+
+    if (verification.verified) {
+      return { valid: true, reason: 'ALREADY_VERIFIED' };
+    }
+
+    if (verification.blocked) {
+      return { valid: false, reason: 'BLOCKED', remainingAttempts: 0 };
+    }
+
+    // Check expiration
+    if (new Date() > new Date(verification.expiresAt)) {
+      return { valid: false, reason: 'EXPIRED' };
+    }
+
+    // Hash the input code and compare
+    var hashedInput = await hashOTPCode(code, verification.salt);
+
+    if (hashedInput === verification.code) {
+      // Code is correct - mark as verified
+      await database.ref('verifications/' + stepId).update({
+        verified: true,
+        verifiedAt: new Date().toISOString()
+      });
+      return { valid: true, reason: 'SUCCESS' };
+    }
+
+    // Code incorrect - increment attempts
+    var newAttempts = (verification.attempts || 0) + 1;
+    var remainingAttempts = state.otpMaxAttempts - newAttempts;
+    var blocked = newAttempts >= state.otpMaxAttempts;
+
+    await database.ref('verifications/' + stepId).update({
+      attempts: newAttempts,
+      blocked: blocked,
+      blockedAt: blocked ? new Date().toISOString() : null
+    });
+
+    state.otpAttempts = newAttempts;
+
+    return {
+      valid: false,
+      reason: blocked ? 'BLOCKED' : 'INVALID_CODE',
+      remainingAttempts: remainingAttempts
+    };
+  } catch(e) {
+    console.error('Firebase OTP error:', e);
+    return { valid: false, reason: 'CONNECTION_ERROR' };
+  }
+}
+
+async function hashOTPCode(code, salt) {
+  var encoder = new TextEncoder();
+  var data = encoder.encode(code + salt);
+  var hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  var hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+function handleOTPError(reason, remainingAttempts) {
+  var errorEl = document.getElementById('otpError');
+  var errorText = document.getElementById('otpErrorText');
+  var inputs = document.querySelectorAll('.otp-digit');
+
+  inputs.forEach(function(input) {
+    input.classList.add('error');
+    input.value = '';
+  });
+  if (inputs[0]) inputs[0].focus();
+
+  var errorMessages = {
+    'INVALID_CODE': 'Code incorrect. ' + remainingAttempts + ' tentative' + (remainingAttempts > 1 ? 's' : '') + ' restante' + (remainingAttempts > 1 ? 's' : '') + '.',
+    'EXPIRED': 'Le code a expir\\u00e9. Veuillez demander un nouveau code.',
+    'BLOCKED': 'Trop de tentatives. L\\'acc\\u00e8s est bloqu\\u00e9.',
+    'NOT_FOUND': 'V\\u00e9rification non trouv\\u00e9e.',
+    'NO_FIREBASE': 'Configuration manquante pour la v\\u00e9rification.',
+    'CONNECTION_ERROR': 'Erreur de connexion. Veuillez r\\u00e9essayer.'
+  };
+
+  if (errorEl) errorEl.style.display = 'flex';
+  if (errorText) errorText.textContent = errorMessages[reason] || 'Une erreur est survenue.';
+
+  // Show remaining attempts
+  if (reason === 'INVALID_CODE') {
+    updateOTPAttempts(remainingAttempts);
+  }
+
+  // If blocked, show blocked screen
+  if (reason === 'BLOCKED') {
+    showOTPBlockedScreen();
+  }
+}
+
+function updateOTPAttempts(remaining) {
+  var attemptsEl = document.getElementById('otpAttempts');
+  var dotsEl = document.getElementById('otpAttemptsDots');
+  var textEl = document.getElementById('otpAttemptsText');
+
+  if (!attemptsEl) return;
+
+  attemptsEl.style.display = 'flex';
+
+  // Generate dots
+  var dotsHTML = '';
+  for (var i = 0; i < state.otpMaxAttempts; i++) {
+    var dotClass = i < remaining ? 'dot remaining' : 'dot used';
+    dotsHTML += '<div class="' + dotClass + '"></div>';
+  }
+  if (dotsEl) dotsEl.innerHTML = dotsHTML;
+
+  if (textEl) {
+    textEl.textContent = remaining + ' tentative' + (remaining > 1 ? 's' : '') + ' restante' + (remaining > 1 ? 's' : '');
+  }
+}
+
+function showOTPSuccess() {
+  var inputs = document.querySelectorAll('.otp-digit');
+  inputs.forEach(function(input) {
+    input.classList.remove('error');
+    input.classList.add('success');
+  });
+
+  // Brief delay then show main content
+  setTimeout(function() {
+    var otpScreen = document.getElementById('otpScreen');
+    if (otpScreen) {
+      otpScreen.style.opacity = '0';
+      otpScreen.style.transition = 'opacity 0.3s ease';
+      setTimeout(function() {
+        otpScreen.style.display = 'none';
+        state.otpVerified = true;
+        initMainContent();
+      }, 300);
+    }
+  }, 500);
+}
+
+function showOTPBlockedScreen() {
+  var otpScreen = document.getElementById('otpScreen');
+  var blockedScreen = document.getElementById('otpBlockedScreen');
+
+  if (otpScreen) otpScreen.style.display = 'none';
+  if (blockedScreen) blockedScreen.style.display = 'flex';
+}
+
+function startOTPCooldown() {
+  var resendBtn = document.getElementById('otpResendBtn');
+  var resendText = document.getElementById('otpResendText');
+
+  if (resendBtn) resendBtn.disabled = true;
+
+  state.otpCooldownInterval = setInterval(function() {
+    state.otpCooldown--;
+
+    if (resendText) {
+      resendText.textContent = state.otpCooldown > 0
+        ? 'Renvoyer dans ' + state.otpCooldown + 's'
+        : 'Renvoyer le code';
+    }
+
+    if (state.otpCooldown <= 0) {
+      clearInterval(state.otpCooldownInterval);
+      if (resendBtn) resendBtn.disabled = false;
+    }
+  }, 1000);
+}
+
+async function resendOTP() {
+  var resendBtn = document.getElementById('otpResendBtn');
+  if (resendBtn) resendBtn.disabled = true;
+
+  try {
+    // Request new OTP via Firebase
+    if (DATA.sync && DATA.sync.enabled) {
+      var database = firebase.database();
+      await database.ref('otpResendRequests/' + DATA.verification.stepId).set({
+        requestedAt: new Date().toISOString(),
+        recipientEmail: DATA.verification.recipientEmail
+      });
+    }
+
+    // Reset cooldown
+    state.otpCooldown = 60;
+    startOTPCooldown();
+
+    // Show success briefly
+    if (resendBtn) {
+      resendBtn.classList.add('success');
+      var resendText = document.getElementById('otpResendText');
+      if (resendText) resendText.textContent = 'Code envoy\\u00e9 !';
+      setTimeout(function() {
+        resendBtn.classList.remove('success');
+      }, 2000);
+    }
+  } catch(e) {
+    console.error('Resend OTP error:', e);
+    if (resendBtn) resendBtn.disabled = false;
+  }
+}
+
+// ===== PACKET EXPIRATION =====
+function showExpiredScreen() {
+  var mainContent = document.getElementById('mainContent');
+  var expiredScreen = document.getElementById('expiredScreen');
+
+  if (mainContent) mainContent.style.display = 'none';
+  if (expiredScreen) expiredScreen.style.display = 'flex';
+}
+
+async function requestExtension() {
+  var btn = document.getElementById('expiredRequestBtn');
+  var sentMsg = document.getElementById('expiredRequestSent');
+
+  if (btn) btn.disabled = true;
+
+  try {
+    if (DATA.sync && DATA.sync.enabled) {
+      var database = firebase.database();
+      await database.ref('extensionRequests/' + DATA.workflow.id + '/' + DATA.currentStep.id).set({
+        requestedAt: new Date().toISOString(),
+        status: 'pending'
+      });
+    }
+
+    if (btn) btn.style.display = 'none';
+    if (sentMsg) sentMsg.style.display = 'flex';
+  } catch(e) {
+    console.error('Extension request error:', e);
+    if (btn) btn.disabled = false;
+  }
+}
+
+function copyOwnerEmail() {
+  var email = DATA.owner.email;
+  navigator.clipboard.writeText(email).then(function() {
+    var btn = event.target;
+    var orig = btn.textContent;
+    btn.textContent = 'Copi\\u00e9 !';
+    setTimeout(function() { btn.textContent = orig; }, 1500);
+  }).catch(function() {
+    console.error('Failed to copy email');
+  });
+}
+
+// ===== READ RECEIPT =====
+async function recordPacketOpening() {
+  if (!DATA.sync || !DATA.sync.enabled) return;
+
+  try {
+    if (!window._firebaseApp) {
+      await loadFirebase();
+    }
+
+    var database = firebase.database();
+    await database.ref('readReceipts/' + DATA.currentStep.id).set({
+      stepId: DATA.currentStep.id,
+      recipientEmail: DATA.currentStep.participant.email,
+      openedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    });
+  } catch(e) {
+    console.error('Read receipt error:', e);
+  }
 }
 `;
 }

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, FileUp, Archive, Settings, Activity,
-  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2
+  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2, Loader2
 } from 'lucide-react';
 import { getNewActivityCount } from '../../services/activityService';
 import { useSettings } from '../../hooks/useSettings';
 import { requestNotificationPermission } from '../../services/reminderService';
+import { selectBackupFolder, clearBackupFolder, isFileSystemAccessSupported } from '../../services/backupService';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
@@ -43,6 +44,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(14);
   const [reminderAdvanceDays, setReminderAdvanceDays] = useState(3);
   const [saved, setSaved] = useState(false);
+  // Backup folder
+  const [backupFolderName, setBackupFolderName] = useState('');
+  const [isSelectingFolder, setIsSelectingFolder] = useState(false);
 
   // Load settings
   useEffect(() => {
@@ -54,6 +58,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       setBrowserNotifications(settings.browserNotificationsEnabled ?? false);
       setDefaultDeadlineDays(settings.defaultDeadlineDays ?? 14);
       setReminderAdvanceDays(settings.reminderAdvanceDays ?? 3);
+      setBackupFolderName(settings.backupFolderName ?? '');
     }
   }, [settings, loading]);
 
@@ -283,6 +288,55 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Backup folder */}
+                {isFileSystemAccessSupported() && (
+                  <div className="pt-3 border-t border-neutral-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FolderOpen size={14} className="text-emerald-500" />
+                      <span className="text-[11px] font-medium text-neutral-700">Dossier de sauvegarde</span>
+                    </div>
+
+                    {backupFolderName ? (
+                      <div className="bg-emerald-50 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FolderOpen size={13} className="text-emerald-600 flex-shrink-0" />
+                          <p className="text-[11px] text-emerald-700 font-medium truncate">{backupFolderName}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await clearBackupFolder();
+                            await updateSettings({ backupFolderName: '' });
+                            setBackupFolderName('');
+                          }}
+                          className="text-[10px] text-neutral-500 hover:text-red-600"
+                        >
+                          Changer de dossier
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          setIsSelectingFolder(true);
+                          try {
+                            const result = await selectBackupFolder();
+                            if (result) {
+                              await updateSettings({ backupFolderName: result.name });
+                              setBackupFolderName(result.name);
+                            }
+                          } finally {
+                            setIsSelectingFolder(false);
+                          }
+                        }}
+                        disabled={isSelectingFolder}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] rounded-lg border border-dashed border-neutral-300 text-neutral-600 hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50/50 transition-colors"
+                      >
+                        {isSelectingFolder ? <Loader2 size={12} className="animate-spin" /> : <FolderOpen size={12} />}
+                        {isSelectingFolder ? 'Sélection...' : 'Choisir un dossier'}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 pt-2">
                   <button

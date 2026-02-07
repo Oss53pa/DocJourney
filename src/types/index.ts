@@ -60,6 +60,7 @@ export type ActivityType =
   | 'step_completed'
   | 'workflow_completed'
   | 'workflow_rejected'
+  | 'workflow_cancelled'
   | 'report_generated'
   | 'document_archived'
   | 'template_created'
@@ -73,7 +74,26 @@ export type ActivityType =
   | 'cloud_connected'
   | 'cloud_disconnected'
   | 'step_skipped'
-  | 'step_reassigned';
+  | 'step_reassigned'
+  | 'step_returned_for_correction'
+  // Security events
+  | 'otp_sent'
+  | 'otp_verified'
+  | 'otp_failed'
+  | 'otp_blocked'
+  | 'otp_resent'
+  | 'packet_opened'
+  | 'packet_expired'
+  | 'packet_extended'
+  // Retention events
+  | 'retention_scheduled'
+  | 'retention_warning'
+  | 'retention_expired'
+  | 'retention_deleted'
+  | 'retention_protected'
+  | 'retention_extended'
+  | 'retention_restored'
+  | 'retention_backed_up';
 
 // ---- Document ----
 export interface DocumentMetadata {
@@ -209,6 +229,10 @@ export interface WorkflowStep {
   skippedAt?: Date;
   skippedReason?: string;
   reassignedFrom?: Participant;
+  // Security & Verification
+  verification?: import('./verification.types').ParticipantVerification;
+  packetExpiration?: import('./verification.types').PacketExpiration;
+  readReceipt?: import('./verification.types').ReadReceipt;
 }
 
 // ---- Workflow ----
@@ -282,6 +306,22 @@ export interface AppSettings {
   firebaseApiKey?: string;
   firebaseDatabaseURL?: string;
   firebaseProjectId?: string;
+  // Security settings
+  otpEnabled?: boolean;
+  otpExpirationHours?: number;
+  otpMaxAttempts?: number;
+  packetExpirationDays?: 7 | 14 | 30;
+  allowPacketExtension?: boolean;
+  maxPacketExtensions?: number;
+  requireReadReceipt?: boolean;
+  // Retention policy
+  retentionEnabled?: boolean;
+  retentionDays?: number;
+  retentionMode?: RetentionMode;
+  retentionNotifyBeforeDeletion?: boolean;
+  retentionNotifyDaysBefore?: number;
+  retentionAutoBackupToCloud?: boolean;
+  retentionExcludeStatuses?: DocumentStatus[];
 }
 
 // ---- Package Data (for HTML export) ----
@@ -343,6 +383,18 @@ export interface PackageData {
     isLockedForSignature?: boolean;  // Document verrouillé pour signature
   };
   sync?: PackageSyncConfig;  // Firebase sync configuration
+  // OTP Verification (Phase 1 Security)
+  verification?: {
+    required: boolean;
+    stepId: string;
+    recipientEmail: string;
+    expiresAt: string;  // ISO date string
+  };
+  // Packet expiration
+  expiration?: {
+    expiresAt: string;  // ISO date string
+    canRequestExtension: boolean;
+  };
 }
 
 // ---- Return file format ----
@@ -444,4 +496,25 @@ export interface CloudConnection {
   userEmail?: string;
   userName?: string;
   connectedAt: Date;
+}
+
+// ---- Retention Policy ----
+export type RetentionMode = 'content_only' | 'full';
+
+export interface DocumentRetention {
+  id: string;
+  documentId: string;
+  documentName: string;
+  workflowCompletedAt: Date;
+  scheduledDeletionAt: Date;
+  retentionDays: number;
+  cloudBackupStatus: 'pending' | 'completed' | 'failed' | 'skipped';
+  cloudBackupUrl?: string;
+  cloudBackupProvider?: CloudProvider;
+  isProtected: boolean;
+  notificationSent: boolean;
+  notificationSentAt?: Date;
+  deletedAt?: Date;
+  deletionMode?: RetentionMode;
+  extensionCount: number;
 }

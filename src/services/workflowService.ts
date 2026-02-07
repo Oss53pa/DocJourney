@@ -3,6 +3,7 @@ import { generateId, getParticipantColor } from '../utils';
 import { logActivity } from './activityService';
 import { updateDocumentStatus } from './documentService';
 import { generateWorkflowReminders } from './reminderService';
+import { scheduleRetention } from './retentionService';
 import type {
   Workflow,
   WorkflowStep,
@@ -159,6 +160,9 @@ export async function processReturn(
       workflow.documentId,
       workflowId
     );
+    // Schedule retention for rejected document
+    const rejDoc = await db.documents.get(workflow.documentId);
+    if (rejDoc) await scheduleRetention(workflow.documentId, rejDoc.name);
   } else if (isModificationRequested) {
     // Modification requested: mark step as rejected, pause workflow (document goes back to owner)
     workflow.steps[stepIndex].status = 'rejected';
@@ -194,6 +198,9 @@ export async function processReturn(
         workflow.documentId,
         workflowId
       );
+      // Schedule retention for completed document
+      const compDoc = await db.documents.get(workflow.documentId);
+      if (compDoc) await scheduleRetention(workflow.documentId, compDoc.name);
     }
   }
 

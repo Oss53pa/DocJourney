@@ -33,6 +33,9 @@ function formatDateStr(d: Date | string): string {
 
 export function generateMarkup(data: PackageData): string {
   return `
+${otpVerificationScreenHTML(data)}
+${packetExpirationScreenHTML(data)}
+<div id="mainContent" ${data.verification?.required ? 'style="display:none"' : ''}>
 ${headerHTML(data)}
 ${instructionsHTML(data)}
 <div class="main-layout${data.currentStep.instructions ? ' has-instructions' : ''}" id="mainLayout">
@@ -42,6 +45,171 @@ ${instructionsHTML(data)}
 ${modalsHTML(data)}
 ${downloadScreenHTML(data)}
 ${mobileDrawerHTML()}
+</div>
+`;
+}
+
+function otpVerificationScreenHTML(data: PackageData): string {
+  if (!data.verification?.required) return '';
+
+  const expiresAt = new Date(data.verification.expiresAt);
+  const expiresAtStr = expiresAt.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `
+<div class="otp-screen" id="otpScreen">
+  <div class="otp-container">
+    <div class="otp-header">
+      <div class="otp-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <h1>V\u00e9rification de s\u00e9curit\u00e9</h1>
+      <p class="otp-subtitle">Saisissez le code \u00e0 6 chiffres envoy\u00e9 \u00e0 votre adresse email</p>
+    </div>
+
+    <div class="otp-doc-info">
+      <div class="otp-doc-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </div>
+      <div class="otp-doc-details">
+        <div class="otp-doc-name">${escapeHtml(data.document.name)}</div>
+        <div class="otp-doc-workflow">${escapeHtml(data.workflow.id.substring(0, 8).toUpperCase())}</div>
+      </div>
+    </div>
+
+    <div class="otp-recipient">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span>${escapeHtml(data.currentStep.participant.name)} (${escapeHtml(data.verification.recipientEmail)})</span>
+    </div>
+
+    <div class="otp-input-container">
+      <div class="otp-inputs" id="otpInputs">
+        <input type="text" maxlength="1" class="otp-digit" data-index="0" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
+        <input type="text" maxlength="1" class="otp-digit" data-index="1" inputmode="numeric" pattern="[0-9]*" />
+        <input type="text" maxlength="1" class="otp-digit" data-index="2" inputmode="numeric" pattern="[0-9]*" />
+        <input type="text" maxlength="1" class="otp-digit" data-index="3" inputmode="numeric" pattern="[0-9]*" />
+        <input type="text" maxlength="1" class="otp-digit" data-index="4" inputmode="numeric" pattern="[0-9]*" />
+        <input type="text" maxlength="1" class="otp-digit" data-index="5" inputmode="numeric" pattern="[0-9]*" />
+      </div>
+    </div>
+
+    <div class="otp-error" id="otpError" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="otpErrorText"></span>
+    </div>
+
+    <div class="otp-attempts" id="otpAttempts" style="display:none">
+      <div class="otp-attempts-dots" id="otpAttemptsDots"></div>
+      <span id="otpAttemptsText"></span>
+    </div>
+
+    <button class="otp-verify-btn" id="otpVerifyBtn" onclick="verifyOTP()" disabled>
+      <span id="otpVerifyText">V\u00e9rifier</span>
+      <div class="otp-spinner" id="otpSpinner" style="display:none"></div>
+    </button>
+
+    <div class="otp-divider">
+      <span>Vous n'avez pas re\u00e7u le code ?</span>
+    </div>
+
+    <button class="otp-resend-btn" id="otpResendBtn" onclick="resendOTP()" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      <span id="otpResendText">Renvoyer dans 60s</span>
+    </button>
+
+    <div class="otp-footer">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <span>Code valide jusqu'au ${expiresAtStr}</span>
+    </div>
+  </div>
+</div>
+
+<!-- OTP Blocked Screen -->
+<div class="otp-blocked-screen" id="otpBlockedScreen" style="display:none">
+  <div class="otp-blocked-container">
+    <div class="otp-blocked-icon">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+    <h2>Acc\u00e8s bloqu\u00e9</h2>
+    <p>Trop de tentatives incorrectes. Le propri\u00e9taire du document a \u00e9t\u00e9 notifi\u00e9.</p>
+    <div class="otp-blocked-info">
+      <strong>Que faire ?</strong>
+      <p>Contactez le propri\u00e9taire du document pour d\u00e9bloquer l'acc\u00e8s ou recevoir un nouveau code.</p>
+    </div>
+  </div>
+</div>
+`;
+}
+
+function packetExpirationScreenHTML(data: PackageData): string {
+  if (!data.expiration) return '';
+
+  const expiresAt = new Date(data.expiration.expiresAt);
+  const expiresAtStr = expiresAt.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+
+  return `
+<div class="expired-screen" id="expiredScreen" style="display:none">
+  <div class="expired-container">
+    <div class="expired-icon">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+    </div>
+    <h2>Paquet expir\u00e9</h2>
+    <p>Ce paquet de validation a expir\u00e9 le <strong>${expiresAtStr}</strong>.</p>
+    ${data.expiration.canRequestExtension ? `
+    <button class="expired-request-btn" id="expiredRequestBtn" onclick="requestExtension()">
+      Demander une prolongation
+    </button>
+    <div class="expired-request-sent" id="expiredRequestSent" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <span>Demande envoy\u00e9e ! Le propri\u00e9taire sera notifi\u00e9.</span>
+    </div>
+    ` : `
+    <p class="expired-no-extension">Veuillez contacter le propri\u00e9taire du document.</p>
+    `}
+    <div class="expired-contact">
+      <span>Contacter : </span>
+      <strong>${escapeHtml(data.owner.email)}</strong>
+      <button class="copy-email-btn" onclick="copyOwnerEmail()">Copier</button>
+    </div>
+  </div>
+</div>
 `;
 }
 

@@ -27,6 +27,12 @@ import { incrementUsage, saveCurrentAsTemplate } from '../services/workflowTempl
 import CloudExportModal from '../components/cloud/CloudExportModal';
 import BlockageAlert from '../components/blockage/BlockageAlert';
 import { detectBlockedWorkflows } from '../services/blockageService';
+import { useDocumentRetention } from '../hooks/useRetention';
+import { protectDocument, unprotectDocument, restoreFromCloud } from '../services/retentionService';
+import RetentionBadge from '../components/retention/RetentionBadge';
+import DeletionWarningBanner from '../components/retention/DeletionWarningBanner';
+import ProtectDocumentButton from '../components/retention/ProtectDocumentButton';
+import ExtendRetentionModal from '../components/retention/ExtendRetentionModal';
 import type { BlockedWorkflowInfo } from '../types';
 
 const ROLES: { value: ParticipantRole; label: string; desc: string }[] = [
@@ -65,7 +71,11 @@ export default function DocumentDetail() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showCloudModal, setShowCloudModal] = useState(false);
   const [blockageInfo, setBlockageInfo] = useState<BlockedWorkflowInfo | null>(null);
+  const [showExtendModal, setShowExtendModal] = useState(false);
   const returnFileRef = useRef<HTMLInputElement>(null);
+
+  // Retention
+  const { retention, refresh: refreshRetention } = useDocumentRetention(id);
 
   // Workflow setup state
   const { templates } = useWorkflowTemplates();
@@ -350,6 +360,7 @@ export default function DocumentDetail() {
           </h1>
           <div className="flex items-center flex-wrap gap-2 mt-2">
             <DocumentStatusBadge status={doc.status} />
+            <RetentionBadge retention={retention} />
             <span className="text-xs text-neutral-400 font-normal">{formatFileSize(doc.size)}</span>
             {doc.metadata.category && <span className="badge-neutral">{doc.metadata.category}</span>}
           </div>
@@ -366,6 +377,29 @@ export default function DocumentDetail() {
           {messageType === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           {message}
         </div>
+      )}
+
+      {/* Retention Warning Banner */}
+      {retention && !retention.isProtected && (retention.notificationSent || retention.deletedAt) && (
+        <DeletionWarningBanner
+          retention={retention}
+          onProtect={async () => {
+            await protectDocument(doc.id);
+            await refreshRetention();
+            showMsg('Document protégé contre la suppression');
+          }}
+          onExtend={() => setShowExtendModal(true)}
+          onRestore={retention.cloudBackupStatus === 'completed' ? async () => {
+            const success = await restoreFromCloud(doc.id);
+            if (success) {
+              showMsg('Document restauré depuis le cloud');
+              await loadData();
+              await refreshRetention();
+            } else {
+              showMsg('Erreur lors de la restauration', 'error');
+            }
+          } : undefined}
+        />
       )}
 
       {/* Workflow Setup — shown when document is draft with no workflow */}
@@ -670,6 +704,20 @@ export default function DocumentDetail() {
             <Cloud size={15} />
             <span className="hidden sm:inline">Cloud</span>
           </button>
+          {retention && (
+            <ProtectDocumentButton
+              documentId={doc.id}
+              isProtected={retention.isProtected}
+              onToggle={async () => {
+                if (retention.isProtected) {
+                  await unprotectDocument(doc.id);
+                } else {
+                  await protectDocument(doc.id);
+                }
+                await refreshRetention();
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -899,6 +947,20 @@ export default function DocumentDetail() {
           isOpen={showCloudModal}
           onClose={() => setShowCloudModal(false)}
           document={doc}
+        />
+      )}
+
+      {/* Extend Retention Modal */}
+      {retention && (
+        <ExtendRetentionModal
+          isOpen={showExtendModal}
+          onClose={() => setShowExtendModal(false)}
+          documentId={doc.id}
+          currentEndDate={retention.scheduledDeletionAt}
+          onExtended={async () => {
+            await refreshRetention();
+            showMsg('Rétention prolongée');
+          }}
         />
       )}
     </div>

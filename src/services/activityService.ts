@@ -35,6 +35,23 @@ const categoryMap: Record<ActivityType, ActivityCategory> = {
   cloud_disconnected: 'organization',
   step_skipped: 'workflow',
   step_reassigned: 'workflow',
+  step_returned_for_correction: 'workflow',
+  otp_sent: 'notification',
+  otp_verified: 'notification',
+  otp_failed: 'notification',
+  otp_blocked: 'notification',
+  otp_resent: 'notification',
+  packet_opened: 'document',
+  packet_expired: 'document',
+  packet_extended: 'document',
+  retention_scheduled: 'document',
+  retention_warning: 'notification',
+  retention_expired: 'document',
+  retention_deleted: 'document',
+  retention_protected: 'document',
+  retention_extended: 'document',
+  retention_restored: 'document',
+  retention_backed_up: 'document',
 };
 
 export function getActivityCategory(type: ActivityType): ActivityCategory {

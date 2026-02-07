@@ -11,6 +11,7 @@ import type {
   DocumentGroup,
   CloudConnection,
   ParticipantGroup,
+  DocumentRetention,
 } from '../types';
 
 export class DocJourneyDB extends Dexie {
@@ -25,6 +26,7 @@ export class DocJourneyDB extends Dexie {
   documentGroups!: Table<DocumentGroup, string>;
   cloudConnections!: Table<CloudConnection, string>;
   participantGroups!: Table<ParticipantGroup, string>;
+  documentRetention!: Table<DocumentRetention, string>;
 
   constructor() {
     super('DocJourneyDB');
@@ -64,6 +66,21 @@ export class DocJourneyDB extends Dexie {
       cloudConnections: 'id, provider, connectedAt',
       participantGroups: 'id, name, createdAt',
     });
+
+    this.version(4).stores({
+      documents: 'id, name, type, status, workflowId, createdAt, updatedAt',
+      workflows: 'id, documentId, currentStepIndex, createdAt',
+      validationReports: 'id, workflowId, documentId, generatedAt',
+      participants: 'id, email, name',
+      activityLog: 'id, timestamp, type, documentId, workflowId',
+      settings: 'id',
+      workflowTemplates: 'id, name, createdAt, usageCount',
+      reminders: 'id, documentId, workflowId, stepId, type, scheduledAt, status',
+      documentGroups: 'id, name, createdAt, updatedAt',
+      cloudConnections: 'id, provider, connectedAt',
+      participantGroups: 'id, name, createdAt',
+      documentRetention: 'id, documentId, scheduledDeletionAt, isProtected, cloudBackupStatus',
+    });
   }
 }
 
@@ -100,6 +117,17 @@ export async function initializeDB() {
         updates.emailjsServiceId = 'service_fptbtnx';
         updates.emailjsTemplateId = 'template_ih65oh8';
         updates.emailjsPublicKey = 'UqTT-gaCEOyELzhy_';
+      }
+
+      // Migration Retention
+      if (existingSettings.retentionEnabled === undefined) {
+        updates.retentionEnabled = true;
+        updates.retentionDays = 7;
+        updates.retentionMode = 'content_only';
+        updates.retentionNotifyBeforeDeletion = true;
+        updates.retentionNotifyDaysBefore = 2;
+        updates.retentionAutoBackupToCloud = true;
+        updates.retentionExcludeStatuses = [];
       }
 
       // Migration Firebase Sync

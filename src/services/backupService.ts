@@ -11,6 +11,7 @@ export interface BackupData {
   reminders: unknown[];
   activityLog: unknown[];
   settings: unknown[];
+  documentRetention: unknown[];
 }
 
 // Store directory handle in IndexedDB
@@ -28,6 +29,7 @@ export async function createBackup(): Promise<BackupData> {
     reminders: await db.reminders.toArray(),
     activityLog: await db.activityLog.toArray(),
     settings: await db.settings.toArray(),
+    documentRetention: await db.documentRetention.toArray(),
   };
   return backup;
 }
