@@ -27,9 +27,7 @@ const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 export default function Settings() {
   const { settings, loading, updateSettings } = useSettings();
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('settings_auth') === 'true';
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('services');
@@ -208,7 +206,6 @@ export default function Settings() {
     const correctPassword = 'Atokp0879*';
     if (passwordInput === correctPassword) {
       setIsAuthenticated(true);
-      sessionStorage.setItem('settings_auth', 'true');
       setPasswordError(false);
     } else {
       setPasswordError(true);
