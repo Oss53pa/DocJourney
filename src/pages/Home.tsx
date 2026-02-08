@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileUp, FolderOpen, Users, Settings, ArrowRight } from 'lucide-react';
 import { db } from '../db';
 import { useSettings } from '../hooks/useSettings';
+import { useStorageQuota } from '../hooks/useStorageQuota';
 
 interface Stats {
   total: number;
@@ -14,6 +15,7 @@ interface Stats {
 export default function Home() {
   const navigate = useNavigate();
   const { settings, loading } = useSettings();
+  const { quota } = useStorageQuota();
   const [stats, setStats] = useState<Stats>({ total: 0, inProgress: 0, completed: 0, rate: '0%' });
 
   useEffect(() => {
@@ -39,11 +41,15 @@ export default function Home() {
     { icon: Settings, label: 'Paramètres', to: '/settings' },
   ];
 
+  const storageValue = quota ? `${quota.usagePercent.toFixed(0)}%` : '—';
+  const storageColor = quota?.isCritical ? 'text-red-600' : quota?.isLow ? 'text-amber-600' : null;
+
   const statItems = [
     { value: stats.total, label: 'Documents' },
     { value: stats.inProgress, label: 'En cours' },
     { value: stats.completed, label: 'Terminés' },
     { value: stats.rate, label: 'Taux de complétion' },
+    { value: storageValue, label: 'Stockage', color: storageColor },
   ];
 
   return (
@@ -79,7 +85,9 @@ export default function Home() {
                 <div className="hidden sm:block w-px h-12 bg-neutral-200 mx-8" />
               )}
               <div className="text-center px-4 sm:px-0">
-                <p className="text-4xl sm:text-5xl font-light text-neutral-900 tracking-tight">
+                <p className={`text-4xl sm:text-5xl font-light tracking-tight ${
+                  stat.color || 'text-neutral-900'
+                }`}>
                   {stat.value}
                 </p>
                 <p className="text-xs sm:text-sm text-neutral-400 mt-1">

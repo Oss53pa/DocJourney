@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, FileUp, Archive, Settings, Activity,
-  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2, Loader2, Home
+  FolderOpen, Users, X, Shield, User, Bell, ChevronDown, ChevronUp, Save, CheckCircle2, Loader2, Home, AlertTriangle, HardDrive
 } from 'lucide-react';
 import { getNewActivityCount } from '../../services/activityService';
 import { useSettings } from '../../hooks/useSettings';
+import { useStorageQuota } from '../../hooks/useStorageQuota';
 import { requestNotificationPermission } from '../../services/reminderService';
 import { selectBackupFolder, clearBackupFolder, isFileSystemAccessSupported } from '../../services/backupService';
 
@@ -26,7 +27,9 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { settings, loading, updateSettings } = useSettings();
+  const { quota } = useStorageQuota();
   const [activityBadge, setActivityBadge] = useState(0);
   const lastVisitRef = useRef<Date>(
     (() => {
@@ -180,6 +183,51 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </NavLink>
             );
           })}
+
+          {/* Storage status */}
+          {quota && (
+            <div
+              onClick={() => { navigate('/settings'); onClose(); }}
+              className={`mx-1 mt-4 px-4 py-2.5 rounded-xl cursor-pointer transition-colors ${
+                quota.isCritical
+                  ? 'bg-red-50 hover:bg-red-100'
+                  : quota.isLow
+                    ? 'bg-amber-50 hover:bg-amber-100'
+                    : 'bg-neutral-50 hover:bg-neutral-100'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <HardDrive size={12} className={
+                    quota.isCritical ? 'text-red-500' : quota.isLow ? 'text-amber-500' : 'text-neutral-400'
+                  } />
+                  <span className={`text-[11px] font-medium ${
+                    quota.isCritical ? 'text-red-700' : quota.isLow ? 'text-amber-700' : 'text-neutral-600'
+                  }`}>
+                    Stockage
+                  </span>
+                </div>
+                <span className={`text-[10px] ${
+                  quota.isCritical ? 'text-red-500' : quota.isLow ? 'text-amber-500' : 'text-neutral-400'
+                }`}>
+                  {quota.usagePercent.toFixed(0)}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    quota.isCritical ? 'bg-red-500' : quota.isLow ? 'bg-amber-500' : 'bg-neutral-400'
+                  }`}
+                  style={{ width: `${Math.min(quota.usagePercent, 100)}%` }}
+                />
+              </div>
+              <p className={`text-[10px] mt-1 ${
+                quota.isCritical ? 'text-red-500' : quota.isLow ? 'text-amber-500' : 'text-neutral-400'
+              }`}>
+                {quota.formattedUsed} / {quota.formattedQuota}
+              </p>
+            </div>
+          )}
         </nav>
 
         {/* Profile Section */}
