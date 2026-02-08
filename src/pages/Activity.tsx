@@ -202,9 +202,9 @@ export default function Activity() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="flex flex-col h-[calc(100vh-100px)] lg:h-[calc(100vh-48px)] animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 flex-shrink-0 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-medium text-neutral-900 tracking-tight">
             Activité
@@ -220,7 +220,7 @@ export default function Activity() {
 
       {/* ── Period Summary ── */}
       {stats && (
-        <div className="card p-5">
+        <div className="card p-5 flex-shrink-0 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <BarChart3 size={16} className="text-neutral-500" />
@@ -256,7 +256,7 @@ export default function Activity() {
       )}
 
       {/* ── Filters ── */}
-      <div className="space-y-3">
+      <div className="space-y-3 flex-shrink-0 mb-6">
         {/* Period tabs */}
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(periodLabels) as PeriodPreset[]).map(p => (
@@ -351,7 +351,7 @@ export default function Activity() {
 
       {/* ── Timeline ── */}
       {activities.length === 0 ? (
-        <div className="card">
+        <div className="card flex-1">
           <EmptyState
             icon={ActivityIcon}
             title="Aucune activité"
@@ -359,153 +359,155 @@ export default function Activity() {
           />
         </div>
       ) : (
-        <div className="space-y-6">
-          {visibleGrouped.map((group) => (
-            <section key={group.label}>
-              {/* Date group header */}
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="text-[13px] font-medium text-neutral-800 uppercase tracking-wide">
-                  {group.label}
-                </h3>
-                <div className="flex-1 h-px bg-neutral-200" />
-                <span className="text-[11px] text-neutral-400">
-                  {group.entries.length} action{group.entries.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
+            {visibleGrouped.map((group) => (
+              <section key={group.label}>
+                {/* Date group header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <h3 className="text-[13px] font-medium text-neutral-800 uppercase tracking-wide">
+                    {group.label}
+                  </h3>
+                  <div className="flex-1 h-px bg-neutral-200" />
+                  <span className="text-[11px] text-neutral-400">
+                    {group.entries.length} action{group.entries.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
 
-              {/* Activity entries */}
-              <div className="space-y-1.5">
-                {group.entries.map((entry) => {
-                  const config = activityConfig[entry.type] || {
-                    icon: ActivityIcon, color: 'text-neutral-500', bg: 'bg-neutral-50', label: entry.type,
-                  };
-                  const Icon = config.icon;
-                  const isExpanded = expandedId === entry.id;
-                  const hasDocument = !!entry.documentId;
+                {/* Activity entries */}
+                <div className="space-y-1.5">
+                  {group.entries.map((entry) => {
+                    const config = activityConfig[entry.type] || {
+                      icon: ActivityIcon, color: 'text-neutral-500', bg: 'bg-neutral-50', label: entry.type,
+                    };
+                    const Icon = config.icon;
+                    const isExpanded = expandedId === entry.id;
+                    const hasDocument = !!entry.documentId;
 
-                  return (
-                    <div
-                      key={entry.id}
-                      className={`card transition-all duration-200 ${
-                        isExpanded ? 'ring-1 ring-neutral-300 shadow-md' : ''
-                      }`}
-                    >
-                      {/* Main row */}
+                    return (
                       <div
-                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-neutral-50/50 transition-colors"
-                        onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                        key={entry.id}
+                        className={`card transition-all duration-200 ${
+                          isExpanded ? 'ring-1 ring-neutral-300 shadow-md' : ''
+                        }`}
                       >
-                        {/* Icon */}
-                        <div className={`w-9 h-9 rounded-xl ${config.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                          <Icon size={16} className={config.color} />
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-neutral-800 leading-snug">
-                            {entry.description}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.bg} ${config.color}`}>
-                              {config.label}
-                            </span>
-                            <span className="text-[11px] text-neutral-400">
-                              {formatRelativeTime(entry.timestamp)}
-                            </span>
+                        {/* Main row */}
+                        <div
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-neutral-50/50 transition-colors"
+                          onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                        >
+                          {/* Icon */}
+                          <div className={`w-9 h-9 rounded-xl ${config.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                            <Icon size={16} className={config.color} />
                           </div>
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {hasDocument && (
-                            <button
-                              onClick={e => { e.stopPropagation(); navigate(`/document/${entry.documentId}`); }}
-                              className="btn-icon hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
-                              title="Voir le document"
-                            >
-                              <ExternalLink size={14} />
-                            </button>
-                          )}
-                          <ChevronDown
-                            size={14}
-                            className={`text-neutral-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Expanded detail */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-1 border-t border-neutral-100 animate-slide-down">
-                          <div className="ml-12 space-y-3">
-                            {/* Details */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <span className="text-neutral-400 text-xs">Date exacte</span>
-                                <p className="text-neutral-700">{formatDate(entry.timestamp)}</p>
-                              </div>
-                              <div>
-                                <span className="text-neutral-400 text-xs">Catégorie</span>
-                                <p className="text-neutral-700">{categoryLabels[getActivityCategory(entry.type)]}</p>
-                              </div>
-                              {entry.documentId && (
-                                <div>
-                                  <span className="text-neutral-400 text-xs">Document</span>
-                                  <p className="text-neutral-700 truncate">{entry.documentId}</p>
-                                </div>
-                              )}
-                              {entry.workflowId && (
-                                <div>
-                                  <span className="text-neutral-400 text-xs">Workflow</span>
-                                  <p className="text-neutral-700 truncate">{entry.workflowId}</p>
-                                </div>
-                              )}
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-neutral-800 leading-snug">
+                              {entry.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.bg} ${config.color}`}>
+                                {config.label}
+                              </span>
+                              <span className="text-[11px] text-neutral-400">
+                                {formatRelativeTime(entry.timestamp)}
+                              </span>
                             </div>
+                          </div>
 
-                            {/* Metadata */}
-                            {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                              <div className="bg-neutral-50 rounded-xl p-3">
-                                <p className="text-[10px] text-neutral-400 uppercase tracking-wide mb-1.5">Métadonnées</p>
-                                <div className="space-y-1">
-                                  {Object.entries(entry.metadata).map(([key, value]) => (
-                                    <div key={key} className="flex items-center gap-2 text-xs">
-                                      <span className="text-neutral-500">{key} :</span>
-                                      <span className="text-neutral-700">{String(value)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {hasDocument && (
+                              <button
+                                onClick={e => { e.stopPropagation(); navigate(`/document/${entry.documentId}`); }}
+                                className="btn-icon hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
+                                title="Voir le document"
+                              >
+                                <ExternalLink size={14} />
+                              </button>
                             )}
-
-                            {/* Quick actions */}
-                            <div className="flex flex-wrap gap-2 pt-1">
-                              {entry.documentId && (
-                                <button
-                                  onClick={() => navigate(`/document/${entry.documentId}`)}
-                                  className="btn-ghost btn-sm"
-                                >
-                                  <FileText size={12} /> Voir document
-                                </button>
-                              )}
-                            </div>
+                            <ChevronDown
+                              size={14}
+                              className={`text-neutral-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            />
                           </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-1 border-t border-neutral-100 animate-slide-down">
+                            <div className="ml-12 space-y-3">
+                              {/* Details */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="text-neutral-400 text-xs">Date exacte</span>
+                                  <p className="text-neutral-700">{formatDate(entry.timestamp)}</p>
+                                </div>
+                                <div>
+                                  <span className="text-neutral-400 text-xs">Catégorie</span>
+                                  <p className="text-neutral-700">{categoryLabels[getActivityCategory(entry.type)]}</p>
+                                </div>
+                                {entry.documentId && (
+                                  <div>
+                                    <span className="text-neutral-400 text-xs">Document</span>
+                                    <p className="text-neutral-700 truncate">{entry.documentId}</p>
+                                  </div>
+                                )}
+                                {entry.workflowId && (
+                                  <div>
+                                    <span className="text-neutral-400 text-xs">Workflow</span>
+                                    <p className="text-neutral-700 truncate">{entry.workflowId}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Metadata */}
+                              {entry.metadata && Object.keys(entry.metadata).length > 0 && (
+                                <div className="bg-neutral-50 rounded-xl p-3">
+                                  <p className="text-[10px] text-neutral-400 uppercase tracking-wide mb-1.5">Métadonnées</p>
+                                  <div className="space-y-1">
+                                    {Object.entries(entry.metadata).map(([key, value]) => (
+                                      <div key={key} className="flex items-center gap-2 text-xs">
+                                        <span className="text-neutral-500">{key} :</span>
+                                        <span className="text-neutral-700">{String(value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Quick actions */}
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {entry.documentId && (
+                                  <button
+                                    onClick={() => navigate(`/document/${entry.documentId}`)}
+                                    className="btn-ghost btn-sm"
+                                  >
+                                    <FileText size={12} /> Voir document
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 flex-shrink-0 border-t border-neutral-100">
               <p className="text-xs text-neutral-400">
                 {startIndex + 1}–{Math.min(startIndex + itemsPerPage, activities.length)} sur {activities.length} activités
               </p>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  onClick={() => setCurrentPage(p => p - 1)}
                   disabled={currentPage === 1}
                   className="btn-icon hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -517,7 +519,7 @@ export default function Activity() {
                   ) : (
                     <button
                       key={page}
-                      onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => setCurrentPage(page)}
                       className={`w-8 h-8 rounded-lg text-sm transition-colors ${
                         currentPage === page
                           ? 'bg-neutral-900 text-white'
@@ -529,7 +531,7 @@ export default function Activity() {
                   )
                 )}
                 <button
-                  onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  onClick={() => setCurrentPage(p => p + 1)}
                   disabled={currentPage === totalPages}
                   className="btn-icon hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -538,7 +540,7 @@ export default function Activity() {
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* ── Export Modal ── */}
