@@ -108,7 +108,7 @@ export default function Activity() {
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 12;
 
   // Export
   const [showExport, setShowExport] = useState(false);
