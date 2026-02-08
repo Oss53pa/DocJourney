@@ -10,7 +10,7 @@ import StorageManagementSection from '../components/settings/StorageManagementSe
 import DomainsSection from '../components/settings/DomainsSection';
 import RestoreBackupModal from '../components/settings/RestoreBackupModal';
 import { useSettings } from '../hooks/useSettings';
-import { db } from '../db';
+import { db, initializeDB } from '../db';
 import { createBackup, downloadBackup, shouldAutoBackup, performAutoBackup, selectBackupFolder, saveBackupToFolder, clearBackupFolder, isFileSystemAccessSupported } from '../services/backupService';
 import { testFirebaseConnection } from '../services/firebaseSyncService';
 
@@ -35,6 +35,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabId>('services');
   const [stats, setStats] = useState({ docs: 0, workflows: 0, participants: 0, activities: 0 });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [emailjsServiceId, setEmailjsServiceId] = useState('');
   const [emailjsTemplateId, setEmailjsTemplateId] = useState('');
   const [emailjsPublicKey, setEmailjsPublicKey] = useState('');
@@ -179,6 +180,27 @@ export default function Settings() {
     await db.authorizedDomains.clear();
     setShowClearConfirm(false);
     setStats({ docs: 0, workflows: 0, participants: 0, activities: 0 });
+  };
+
+  const handleResetData = async () => {
+    // Clear all data
+    await db.documents.clear();
+    await db.workflows.clear();
+    await db.validationReports.clear();
+    await db.activityLog.clear();
+    await db.participants.clear();
+    await db.workflowTemplates.clear();
+    await db.reminders.clear();
+    await db.documentGroups.clear();
+    await db.cloudConnections.clear();
+    await db.documentRetention.clear();
+    await db.authorizedDomains.clear();
+    await db.settings.clear();
+    // Re-seed defaults (settings, templates, domains)
+    await initializeDB();
+    setShowResetConfirm(false);
+    setStats({ docs: 0, workflows: 0, participants: 0, activities: 0 });
+    window.location.reload();
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -762,27 +784,61 @@ export default function Settings() {
                 </div>
               </div>
 
-              {!showClearConfirm ? (
-                <button onClick={() => setShowClearConfirm(true)} className="btn-danger btn-sm">
-                  <Trash2 size={14} />
-                  Effacer toutes les données
-                </button>
-              ) : (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3 animate-fade-in">
-                  <p className="text-sm text-red-700 font-normal leading-relaxed">
-                    Cette action supprimera définitivement tous les documents, workflows et données associées.
-                    Cette action est irréversible.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                    <button onClick={handleClearData} className="btn-danger btn-sm">
-                      Confirmer la suppression
-                    </button>
-                    <button onClick={() => setShowClearConfirm(false)} className="btn-secondary btn-sm">
-                      Annuler
-                    </button>
+              {/* Effacer les données */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-neutral-600">Effacer toutes les données</p>
+                <p className="text-xs text-neutral-400">Supprime tous les documents, workflows et données sans recréer les valeurs par défaut.</p>
+                {!showClearConfirm ? (
+                  <button onClick={() => setShowClearConfirm(true)} className="btn-danger btn-sm">
+                    <Trash2 size={14} />
+                    Effacer toutes les données
+                  </button>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3 animate-fade-in">
+                    <p className="text-sm text-red-700 font-normal leading-relaxed">
+                      Cette action supprimera définitivement tous les documents, workflows et données associées.
+                      Cette action est irréversible.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <button onClick={handleClearData} className="btn-danger btn-sm">
+                        Confirmer la suppression
+                      </button>
+                      <button onClick={() => setShowClearConfirm(false)} className="btn-secondary btn-sm">
+                        Annuler
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="border-t border-red-100" />
+
+              {/* Réinitialiser les données */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-neutral-600">Réinitialiser les données</p>
+                <p className="text-xs text-neutral-400">Supprime tout et recrée les paramètres, modèles et domaines par défaut. L'application redémarrera.</p>
+                {!showResetConfirm ? (
+                  <button onClick={() => setShowResetConfirm(true)} className="btn-danger btn-sm">
+                    <Trash2 size={14} />
+                    Réinitialiser les données
+                  </button>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3 animate-fade-in">
+                    <p className="text-sm text-red-700 font-normal leading-relaxed">
+                      Cette action supprimera toutes les données et restaurera les paramètres d'usine
+                      (modèles, domaines autorisés, configuration). L'application sera rechargée.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                      <button onClick={handleResetData} className="btn-danger btn-sm">
+                        Confirmer la réinitialisation
+                      </button>
+                      <button onClick={() => setShowResetConfirm(false)} className="btn-secondary btn-sm">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
