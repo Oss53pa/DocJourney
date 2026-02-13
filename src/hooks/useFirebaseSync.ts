@@ -53,6 +53,8 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
 
   const cleanupRef = useRef<(() => void) | null>(null);
   const isConnectingRef = useRef(false);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const isEnabled = !settingsLoading && isSyncConfigured(settings);
 
@@ -119,11 +121,13 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
 
   // Connect to Firebase
   const connect = useCallback(async () => {
-    if (isConnectingRef.current || status === 'connected') {
+    if (isConnectingRef.current) {
       return;
     }
 
-    if (!isEnabled) {
+    const currentSettings = settingsRef.current;
+
+    if (!isSyncConfigured(currentSettings)) {
       setLastError('Firebase sync non configuré');
       return;
     }
@@ -133,7 +137,7 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
     setLastError(null);
 
     try {
-      const config = getFirebaseConfig(settings);
+      const config = getFirebaseConfig(currentSettings);
       if (!config) {
         throw new Error('Configuration Firebase invalide');
       }
@@ -145,18 +149,13 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
       }
 
       // Generate channel ID from owner email
-      console.log('=== FIREBASE SYNC DEBUG ===');
-      console.log('Owner email from settings:', settings.ownerEmail || 'NOT SET');
-      const newChannelId = await generateChannelId(settings.ownerEmail);
-      console.log('Generated channelId:', newChannelId);
-      console.log('Listening on path: returns/' + newChannelId);
+      const newChannelId = await generateChannelId(currentSettings.ownerEmail);
       setChannelId(newChannelId);
 
       // Start listening for returns
       const cleanup = await listenForReturns(newChannelId, handleNewReturn);
       cleanupRef.current = cleanup;
 
-      console.log('Firebase sync connected and listening!');
       setStatus('connected');
     } catch (error) {
       console.error('Firebase connection error:', error);
@@ -165,7 +164,7 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
     } finally {
       isConnectingRef.current = false;
     }
-  }, [isEnabled, settings, handleNewReturn, status]);
+  }, [handleNewReturn]);
 
   // Disconnect from Firebase
   const disconnect = useCallback(() => {
@@ -189,7 +188,8 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
     if (!settingsLoading && isEnabled && status === 'disconnected') {
       connect();
     }
-  }, [settingsLoading, isEnabled, status, connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoading, isEnabled, status]);
 
   // Auto-process pending returns
   useEffect(() => {
