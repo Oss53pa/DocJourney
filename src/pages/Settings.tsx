@@ -862,8 +862,7 @@ export default function Settings() {
             <p className="text-sm text-neutral-600 leading-relaxed">Le voyage du document à travers son circuit de validation.</p>
             <div className="mt-4 space-y-1.5 text-xs text-neutral-400">
               <p className="font-normal text-neutral-500">Version 1.0.0</p>
-              <p>Application 100% locale — Aucune donnée envoyée vers un serveur</p>
-              <p>Stockage : IndexedDB (navigateur)</p>
+              <p>Stockage local (IndexedDB) avec synchronisation cloud optionnelle</p>
             </div>
             <div className="mt-6 pt-4 border-t border-neutral-100">
               <p className="text-xs text-neutral-500">Développé par <span className="font-normal text-neutral-700">Pamela Atokouna</span></p>

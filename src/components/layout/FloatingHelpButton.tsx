@@ -183,7 +183,7 @@ export default function FloatingHelpButton() {
           {/* Footer */}
           <div className="px-5 py-3 border-t border-neutral-100 flex-shrink-0 bg-neutral-50/50">
             <p className="text-[11px] text-neutral-400 text-center">
-              100% locale — Vos données restent dans votre navigateur
+              Vos données sont stockées localement dans votre navigateur
             </p>
           </div>
         </div>

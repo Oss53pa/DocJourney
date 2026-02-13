@@ -515,7 +515,7 @@ export function generateReceiptPreview(): string {
       Ce reçu a été généré automatiquement par <strong>DocJourney</strong>
     </p>
     <p style="font-size:10px;color:#d4d4d4;margin:6px 0 0">
-      Application de validation documentaire — 100% locale, sans serveur
+      Application de validation documentaire
     </p>
   </div>
 

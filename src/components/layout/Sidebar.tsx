@@ -437,7 +437,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div className="px-5 pb-4 pt-1">
             <div className="flex items-center gap-2 text-[10px] text-neutral-400">
               <Shield size={12} />
-              <span>100% local — aucun serveur</span>
+              <span>Données stockées localement</span>
             </div>
             <p className="text-[10px] text-neutral-300 mt-0.5">DocJourney v1.0</p>
           </div>
