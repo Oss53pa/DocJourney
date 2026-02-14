@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { generateId } from '../utils';
 import { logActivity } from './activityService';
+import { deletePackageFromStorage, getFirebaseConfig, isSyncConfigured } from './firebaseSyncService';
 import type { DocumentRetention, RetentionMode } from '../types';
 
 // ── Schedule ──
@@ -86,6 +87,9 @@ export async function processRetentions(): Promise<void> {
         await db.documentRetention.update(retention.id, { cloudBackupStatus: 'failed' });
       }
     }
+
+    // Delete Firebase Storage packages if configured
+    await deleteStoragePackages(retention.documentId);
 
     // Delete content
     await deleteDocumentContent(retention.documentId, retentionMode);
@@ -271,6 +275,41 @@ export async function getRetentionStats(): Promise<{
     deleted: all.filter(r => !!r.deletedAt).length,
     pendingBackup: all.filter(r => r.cloudBackupStatus === 'pending').length,
   };
+}
+
+// ── Internal: delete Firebase Storage packages ──
+
+async function deleteStoragePackages(documentId: string): Promise<void> {
+  try {
+    const doc = await db.documents.get(documentId);
+    if (!doc?.workflowId) return;
+
+    const workflow = await db.workflows.get(doc.workflowId);
+    if (!workflow?.storagePackageIds?.length) return;
+
+    const settings = await db.settings.get('default');
+    if (!settings || !isSyncConfigured(settings)) return;
+
+    const firebaseConfig = getFirebaseConfig(settings);
+    if (!firebaseConfig) return;
+
+    let totalDeleted = 0;
+    for (const packageId of workflow.storagePackageIds) {
+      const result = await deletePackageFromStorage(packageId, firebaseConfig);
+      if (result.success) {
+        totalDeleted += result.deletedCount;
+      }
+    }
+
+    // Clear the packageIds from the workflow
+    await db.workflows.update(workflow.id, { storagePackageIds: [] });
+
+    if (totalDeleted > 0) {
+      await logActivity('retention_deleted', `${totalDeleted} fichier(s) supprimé(s) de Firebase Storage`, documentId);
+    }
+  } catch (error) {
+    console.error('Error deleting storage packages during retention:', error);
+  }
 }
 
 // ── Internal: delete content ──

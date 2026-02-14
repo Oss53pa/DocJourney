@@ -1,4 +1,5 @@
 import emailjs from '@emailjs/browser';
+import { db } from '../db';
 import type { DocJourneyDocument, Workflow, AppSettings } from '../types';
 import { getRoleLabel, getRoleAction, formatDate, generateId } from '../utils';
 import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from './firebaseSyncService';
@@ -301,6 +302,9 @@ export async function sendEmailViaEmailJS(
 
       if (uploadResult.success && uploadResult.url) {
         hostedUrl = uploadResult.url;
+        // Save packageId in workflow for retention cleanup
+        const existing = workflow.storagePackageIds ?? [];
+        await db.workflows.update(workflow.id, { storagePackageIds: [...existing, packageId] });
         console.log('Package uploaded successfully:', hostedUrl);
       } else {
         console.warn('Failed to upload package to storage:', uploadResult.error);

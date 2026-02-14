@@ -169,6 +169,9 @@ export default function DocumentDetail() {
           if (uploadResult.success && uploadResult.url) {
             hostedUrl = uploadResult.url;
             setGeneratedHostedUrl(uploadResult.url);
+            // Save packageId in workflow for retention cleanup
+            const existing = workflow.storagePackageIds ?? [];
+            await db.workflows.update(workflow.id, { storagePackageIds: [...existing, packageId] });
             console.log('Package uploaded for preview:', hostedUrl);
           } else {
             console.error('Upload failed:', uploadResult.error);

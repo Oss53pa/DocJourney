@@ -69,15 +69,19 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
 
     if (syncEnabled && firebaseConfig) {
       try {
+        const packageId = generateId();
         const uploadResult = await uploadPackageToStorage(
           html,
-          generateId(),
+          packageId,
           nextStep.participant.name,
           doc.name,
           firebaseConfig
         );
         if (uploadResult.success && uploadResult.url) {
           hostedUrl = uploadResult.url;
+          // Save packageId in workflow for retention cleanup
+          const existing = workflow.storagePackageIds ?? [];
+          await db.workflows.update(workflow.id, { storagePackageIds: [...existing, packageId] });
           console.log('Auto-advance: uploaded to', hostedUrl);
         } else {
           console.warn('Auto-advance: upload failed:', uploadResult.error);

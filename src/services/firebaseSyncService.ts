@@ -21,10 +21,17 @@ interface FirebaseStorage {
   ref: (path?: string) => StorageReference;
 }
 
+interface ListResult {
+  items: StorageReference[];
+  prefixes: StorageReference[];
+}
+
 interface StorageReference {
   child: (path: string) => StorageReference;
   put: (data: Blob | Uint8Array | ArrayBuffer, metadata?: StorageMetadata) => UploadTask;
   getDownloadURL: () => Promise<string>;
+  delete: () => Promise<void>;
+  listAll: () => Promise<ListResult>;
 }
 
 interface StorageMetadata {
@@ -398,6 +405,42 @@ export async function uploadPackageToStorage(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Erreur lors de l\'upload',
+    };
+  }
+}
+
+/**
+ * Delete all files for a package from Firebase Storage
+ */
+export async function deletePackageFromStorage(
+  packageId: string,
+  config: FirebaseSyncConfig
+): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    const initialized = await initializeFirebase(config);
+    if (!initialized || !firebaseStorage) {
+      return { success: false, deletedCount: 0, error: 'Firebase Storage non disponible' };
+    }
+
+    const storageRef = firebaseStorage.ref();
+    const packageRef = storageRef.child(`packages/${packageId}`);
+
+    const listResult = await packageRef.listAll();
+    let deletedCount = 0;
+
+    for (const item of listResult.items) {
+      await item.delete();
+      deletedCount++;
+    }
+
+    console.log(`Deleted ${deletedCount} file(s) from packages/${packageId}/`);
+    return { success: true, deletedCount };
+  } catch (error) {
+    console.error('Error deleting package from storage:', error);
+    return {
+      success: false,
+      deletedCount: 0,
+      error: error instanceof Error ? error.message : 'Erreur lors de la suppression',
     };
   }
 }

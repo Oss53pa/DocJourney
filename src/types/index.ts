@@ -285,6 +285,8 @@ export interface Workflow {
   awaitingCorrection?: boolean;
   correctionRequestedAt?: Date;
   correctionStepIndex?: number;
+  // Firebase Storage package IDs (for retention cleanup)
+  storagePackageIds?: string[];
 }
 
 // ---- Validation Report ----
