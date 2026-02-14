@@ -2021,6 +2021,10 @@ function applyWatermark(srcCanvas) {
 function showApprovalConfirmation() {
   var commentCount = state.myAnnotations.length;
   var generalComment = (document.getElementById('generalComment') || {}).value || '';
+  if (!generalComment.trim()) {
+    alert('Veuillez saisir une note avant de valider.');
+    return;
+  }
   var text = '<strong>D\\u00e9cision :</strong> Approbation';
   if (commentCount > 0) text += '<br>' + commentCount + ' annotation(s) ajout\\u00e9e(s)';
   if (generalComment.trim()) text += '<br><em>"' + escapeHtml(generalComment.trim().substring(0, 100)) + (generalComment.length > 100 ? '...' : '') + '"</em>';
@@ -2045,10 +2049,20 @@ function showApprovalConfirmation() {
 }
 
 function showModificationConfirmation() {
+  var generalComment = (document.getElementById('generalComment') || {}).value || '';
+  if (!generalComment.trim()) {
+    alert('Veuillez saisir une note avant de valider.');
+    return;
+  }
   showModal('modificationModal');
 }
 
 function showRejectionConfirmation() {
+  var generalComment = (document.getElementById('generalComment') || {}).value || '';
+  if (!generalComment.trim()) {
+    alert('Veuillez saisir une note avant de valider.');
+    return;
+  }
   showModal('rejectionModal');
 }
 
@@ -2675,6 +2689,12 @@ function copyEmail() {
     document.execCommand('copy');
     document.body.removeChild(input);
   }
+}
+
+function closeWindow() {
+  window.close();
+  // Fallback: if window.close() is blocked by the browser
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#525252;text-align:center"><div><h2>Vous pouvez fermer cette fen\\u00eatre</h2><p>Le navigateur ne permet pas la fermeture automatique.<br>Veuillez fermer cet onglet manuellement.</p></div></div>';
 }
 
 // ===== MODALS =====

@@ -470,7 +470,7 @@ function notesTabHTML(): string {
     </div>
     <div id="myAnnotationsList"></div>
     <div class="general-comment-section">
-      <label style="display:block;font-size:12px;font-weight:400;color:#525252;margin-bottom:6px">Commentaire g\u00e9n\u00e9ral</label>
+      <label style="display:block;font-size:12px;font-weight:500;color:#525252;margin-bottom:6px">Note <span style="color:#dc2626">*</span></label>
       <textarea id="generalComment" placeholder="Votre commentaire g\u00e9n\u00e9ral sur le document..." maxlength="500"></textarea>
       <div class="char-count"><span id="generalCharCount">0</span>/500</div>
     </div>
@@ -806,7 +806,10 @@ function downloadScreenHTML(data: PackageData): string {
       </div>
       ` : ''}
     </div>
-    <div class="dl-footer">Merci pour votre participation</div>
+    <div class="dl-footer">
+      Merci pour votre participation
+      <button class="btn btn-secondary" onclick="closeWindow()" style="margin-top:12px;display:block;margin-left:auto;margin-right:auto">Fermer cette page</button>
+    </div>
   </div>
 </div>`;
 }
