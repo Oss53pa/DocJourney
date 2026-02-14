@@ -11,6 +11,7 @@ import { generateId } from '../utils';
 import { generatePackage } from './packageService';
 import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from './firebaseSyncService';
 import { sendEmailViaEmailJS, isEmailJSConfigured } from './emailService';
+import { logActivity } from './activityService';
 import { DEFAULT_SETTINGS } from '../hooks/useSettings';
 import type { AppSettings } from '../types';
 
@@ -26,20 +27,36 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
   try {
     // Reload workflow from DB (it was just modified by processReturn)
     const workflow = await db.workflows.get(workflowId);
-    if (!workflow || workflow.completedAt) return;
+    if (!workflow || workflow.completedAt) {
+      console.log('Auto-advance: workflow not found or completed, skipping');
+      return;
+    }
 
     const nextStep = workflow.steps[workflow.currentStepIndex];
-    if (!nextStep || nextStep.status !== 'pending') return;
+    if (!nextStep || nextStep.status !== 'pending') {
+      console.log('Auto-advance: no pending next step at index', workflow.currentStepIndex,
+        'status:', nextStep?.status, 'total steps:', workflow.steps.length);
+      return;
+    }
 
     const doc = await db.documents.get(workflow.documentId);
-    if (!doc) return;
+    if (!doc) {
+      console.log('Auto-advance: document not found');
+      return;
+    }
 
     const rawSettings = await db.settings.get('default');
-    // Merge with DEFAULT_SETTINGS to ensure env-based defaults (EmailJS, Firebase) are available
     const settings: AppSettings = { ...DEFAULT_SETTINGS, ...rawSettings };
-    if (!settings) return;
 
-    console.log('Auto-advance: starting for workflow', workflowId, 'step', workflow.currentStepIndex, 'participant', nextStep.participant.name);
+    await logActivity(
+      'package_generated',
+      `Auto-avancement: génération du paquet pour ${nextStep.participant.name}`,
+      doc.id,
+      workflowId
+    );
+
+    console.log('Auto-advance: starting for workflow', workflowId,
+      'step', workflow.currentStepIndex, 'participant', nextStep.participant.name);
 
     // 1. Generate the HTML package (calls markStepAsSent internally)
     const html = await generatePackage(doc, workflow, workflow.currentStepIndex);
@@ -49,8 +66,6 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
     const syncEnabled = isSyncConfigured(settings);
     const firebaseConfig = getFirebaseConfig(settings);
     let hostedUrl: string | undefined;
-
-    console.log('Auto-advance: syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig);
 
     if (syncEnabled && firebaseConfig) {
       try {
@@ -74,21 +89,46 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
 
     // 3. Send email via EmailJS if configured
     const emailConfigured = isEmailJSConfigured(settings);
-    console.log('Auto-advance: emailConfigured:', emailConfigured);
 
     if (emailConfigured) {
       try {
         await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings, html, hostedUrl);
+        await logActivity(
+          'package_generated',
+          `Auto-avancement: email envoyé à ${nextStep.participant.name} (${nextStep.participant.email})`,
+          doc.id,
+          workflowId
+        );
         console.log('Auto-advance: email sent to', nextStep.participant.email);
       } catch (error) {
+        await logActivity(
+          'package_generated',
+          `Auto-avancement: ERREUR envoi email à ${nextStep.participant.name}: ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+          doc.id,
+          workflowId
+        );
         console.warn('Auto-advance: failed to send email:', error);
       }
     } else {
-      console.warn('Auto-advance: EmailJS not configured, skipping email. serviceId:', settings.emailjsServiceId, 'templateId:', settings.emailjsTemplateId, 'publicKey:', settings.emailjsPublicKey ? '***' : '(empty)');
+      await logActivity(
+        'package_generated',
+        `Auto-avancement: EmailJS non configuré, email non envoyé`,
+        doc.id,
+        workflowId
+      );
+      console.warn('Auto-advance: EmailJS not configured');
     }
 
     console.log(`Auto-advance: completed for ${nextStep.participant.name} (workflow ${workflowId})`);
   } catch (error) {
     console.error('Auto-advance failed:', error);
+    try {
+      await logActivity(
+        'package_generated',
+        `Auto-avancement: ÉCHEC - ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+        undefined,
+        workflowId
+      );
+    } catch { /* ignore logging errors */ }
   }
 }

@@ -13,6 +13,7 @@ import { getAllAnnotationsUpToStep, markStepAsSent } from './workflowService';
 import { generateHTML } from './packageHtml';
 import { generateChannelId, isSyncConfigured } from './firebaseSyncService';
 import { db } from '../db';
+import { DEFAULT_SETTINGS } from '../hooks/useSettings';
 
 // Re-export for external consumers
 export { generateHTML } from './packageHtml';
@@ -82,9 +83,10 @@ export async function generatePackage(
 
   // Build sync configuration if enabled
   let syncConfig: PackageSyncConfig | undefined;
-  const settings = await db.settings.get('default') as AppSettings | undefined;
+  const rawSettings = await db.settings.get('default');
+  const settings: AppSettings = { ...DEFAULT_SETTINGS, ...rawSettings };
 
-  if (settings && isSyncConfigured(settings)) {
+  if (isSyncConfigured(settings)) {
     const channelId = await generateChannelId(settings.ownerEmail);
     syncConfig = {
       enabled: true,
