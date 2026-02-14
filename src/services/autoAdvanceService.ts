@@ -11,6 +11,7 @@ import { generateId } from '../utils';
 import { generatePackage } from './packageService';
 import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from './firebaseSyncService';
 import { sendEmailViaEmailJS, isEmailJSConfigured } from './emailService';
+import { DEFAULT_SETTINGS } from '../hooks/useSettings';
 import type { AppSettings } from '../types';
 
 /**
@@ -33,16 +34,23 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
     const doc = await db.documents.get(workflow.documentId);
     if (!doc) return;
 
-    const settings = await db.settings.get('default') as AppSettings | undefined;
+    const rawSettings = await db.settings.get('default');
+    // Merge with DEFAULT_SETTINGS to ensure env-based defaults (EmailJS, Firebase) are available
+    const settings: AppSettings = { ...DEFAULT_SETTINGS, ...rawSettings };
     if (!settings) return;
+
+    console.log('Auto-advance: starting for workflow', workflowId, 'step', workflow.currentStepIndex, 'participant', nextStep.participant.name);
 
     // 1. Generate the HTML package (calls markStepAsSent internally)
     const html = await generatePackage(doc, workflow, workflow.currentStepIndex);
+    console.log('Auto-advance: package generated, size:', html.length);
 
     // 2. Upload to Firebase Storage if configured
     const syncEnabled = isSyncConfigured(settings);
     const firebaseConfig = getFirebaseConfig(settings);
     let hostedUrl: string | undefined;
+
+    console.log('Auto-advance: syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig);
 
     if (syncEnabled && firebaseConfig) {
       try {
@@ -55,6 +63,9 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
         );
         if (uploadResult.success && uploadResult.url) {
           hostedUrl = uploadResult.url;
+          console.log('Auto-advance: uploaded to', hostedUrl);
+        } else {
+          console.warn('Auto-advance: upload failed:', uploadResult.error);
         }
       } catch (error) {
         console.warn('Auto-advance: failed to upload package to storage:', error);
@@ -62,15 +73,21 @@ export async function autoAdvanceToNextStep(workflowId: string): Promise<void> {
     }
 
     // 3. Send email via EmailJS if configured
-    if (isEmailJSConfigured(settings)) {
+    const emailConfigured = isEmailJSConfigured(settings);
+    console.log('Auto-advance: emailConfigured:', emailConfigured);
+
+    if (emailConfigured) {
       try {
         await sendEmailViaEmailJS(doc, workflow, workflow.currentStepIndex, settings, html, hostedUrl);
+        console.log('Auto-advance: email sent to', nextStep.participant.email);
       } catch (error) {
         console.warn('Auto-advance: failed to send email:', error);
       }
+    } else {
+      console.warn('Auto-advance: EmailJS not configured, skipping email. serviceId:', settings.emailjsServiceId, 'templateId:', settings.emailjsTemplateId, 'publicKey:', settings.emailjsPublicKey ? '***' : '(empty)');
     }
 
-    console.log(`Auto-advance: package sent to ${nextStep.participant.name} for workflow ${workflowId}`);
+    console.log(`Auto-advance: completed for ${nextStep.participant.name} (workflow ${workflowId})`);
   } catch (error) {
     console.error('Auto-advance failed:', error);
   }

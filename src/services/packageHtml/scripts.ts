@@ -291,7 +291,10 @@ function renderPdfToCanvas(pdfData, container) {
       container.innerHTML = '';
 
       var devicePixelRatio = window.devicePixelRatio || 1;
-      var containerWidth = container.parentElement ? container.parentElement.clientWidth - 16 : window.innerWidth - 32;
+      // Use viewport element width (reliable on mobile), fall back to window width
+      var viewport = document.getElementById('viewerViewport');
+      var containerWidth = (viewport ? viewport.clientWidth : window.innerWidth) - 32;
+      if (containerWidth <= 0) containerWidth = window.innerWidth - 32;
 
       for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         (function(num) {

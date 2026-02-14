@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { db } from '../db';
 import type { AppSettings, RetentionMode, DocumentStatus } from '../types';
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   id: 'default',
   ownerName: '',
   ownerEmail: '',

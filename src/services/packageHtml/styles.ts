@@ -439,6 +439,8 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
   .viewer-toolbar{flex-wrap:wrap;gap:4px}
   .instructions-bar{font-size:12px}
   .viewer-viewport{padding:8px}
+  .viewer-content{width:100%}
+  .doc-render{width:100%}
   .doc-render iframe{width:100%!important;height:70vh!important}
   .doc-render pre{min-width:auto;font-size:11px;padding:12px}
   .viewer-fallback{padding:40px 20px}
