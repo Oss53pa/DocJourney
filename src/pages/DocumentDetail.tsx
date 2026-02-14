@@ -28,6 +28,7 @@ import { incrementUsage, saveCurrentAsTemplate } from '../services/workflowTempl
 import CloudExportModal from '../components/cloud/CloudExportModal';
 import BlockageAlert from '../components/blockage/BlockageAlert';
 import { detectBlockedWorkflows } from '../services/blockageService';
+import { useFirebaseSyncContext } from '../components/layout/AppLayout';
 import { useDocumentRetention } from '../hooks/useRetention';
 import { protectDocument, unprotectDocument, restoreFromCloud } from '../services/retentionService';
 import RetentionBadge from '../components/retention/RetentionBadge';
@@ -75,6 +76,8 @@ export default function DocumentDetail() {
   const [blockageInfo, setBlockageInfo] = useState<BlockedWorkflowInfo | null>(null);
   const [showExtendModal, setShowExtendModal] = useState(false);
   const returnFileRef = useRef<HTMLInputElement>(null);
+  const firebaseSync = useFirebaseSyncContext();
+  const lastProcessedCountRef = useRef(firebaseSync?.processedCount ?? 0);
 
   // Retention
   const { retention, refresh: refreshRetention } = useDocumentRetention(id);
@@ -113,6 +116,14 @@ export default function DocumentDetail() {
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Refresh when a new return is processed via Firebase sync
+  useEffect(() => {
+    if (firebaseSync?.processedCount && firebaseSync.processedCount > lastProcessedCountRef.current) {
+      loadData();
+    }
+    lastProcessedCountRef.current = firebaseSync?.processedCount ?? 0;
+  }, [firebaseSync?.processedCount, loadData]);
 
   // Set default workflow name when document loads
   useEffect(() => {
