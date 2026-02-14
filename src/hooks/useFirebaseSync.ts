@@ -16,6 +16,7 @@ import {
   isSyncConfigured,
   getFirebaseConfig,
 } from '../services/firebaseSyncService';
+import { autoAdvanceToNextStep } from '../services/autoAdvanceService';
 import type { ReturnFileData } from '../types';
 
 export type SyncStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -97,6 +98,12 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
       const result = await processRemoteReturn(pendingReturn.data, returnId, channelId);
 
       if (result.success) {
+        // Auto-advance to next step if validation was successful (not rejected/correction)
+        const decision = pendingReturn.data.decision;
+        if (decision !== 'rejected' && decision !== 'modification_requested') {
+          await autoAdvanceToNextStep(pendingReturn.data.workflowId);
+        }
+
         // Remove from pending list
         setPendingReturns(prev => prev.filter(r => r.id !== returnId));
         setProcessedCount(prev => prev + 1);

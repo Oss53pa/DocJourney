@@ -4,6 +4,7 @@ import { logActivity } from './activityService';
 import { updateDocumentStatus } from './documentService';
 import { generateWorkflowReminders } from './reminderService';
 import { scheduleRetention } from './retentionService';
+import { autoAdvanceToNextStep } from './autoAdvanceService';
 import type {
   Workflow,
   WorkflowStep,
@@ -480,6 +481,11 @@ export async function processParallelReturn(
   }
 
   await db.workflows.put(workflow);
+
+  // Auto-advance to next step if step completed and workflow not finished
+  if (stepCompleted && !workflow.completedAt) {
+    await autoAdvanceToNextStep(workflowId);
+  }
 
   return {
     success: true,

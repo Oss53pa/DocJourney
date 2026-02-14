@@ -137,6 +137,10 @@ function initMainContent() {
     if (mainContent) mainContent.style.display = '';
 
     renderDocument();
+    // Auto fit-to-width on mobile for better initial display
+    if (window.innerWidth <= 768) {
+      setTimeout(function() { try { fitToWidth(); } catch(e) {} }, 100);
+    }
     renderAnnotationOverlay();
     setupSignature();
     setupInitials();
@@ -188,14 +192,55 @@ function switchTab(tab, isMobile) {
 }
 
 // ===== DOCUMENT RENDERING =====
+function base64ToBlob(b64, mime) {
+  var byteChars = atob(b64);
+  var byteNumbers = new Array(byteChars.length);
+  for (var i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+  return new Blob([new Uint8Array(byteNumbers)], { type: mime });
+}
+
+function openBlobInNewTab(b64, mime) {
+  var blob = base64ToBlob(b64, mime);
+  var url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+function downloadBlob(b64, mime, filename) {
+  var blob = base64ToBlob(b64, mime);
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+}
+
 function renderDocument() {
   var docRender = document.getElementById('docRender');
   var type = DATA.document.type;
   var b64 = DATA.document.content;
+  var isMobile = window.innerWidth <= 768;
 
   if (type === 'pdf' || DATA.document.previewContent) {
     var pdfData = DATA.document.previewContent || b64;
-    docRender.innerHTML = '<iframe src="data:application/pdf;base64,' + pdfData + '" style="width:800px;height:1100px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)" id="pdfFrame"></iframe>';
+    var pdfBlob = base64ToBlob(pdfData, 'application/pdf');
+    var pdfBlobUrl = URL.createObjectURL(pdfBlob);
+
+    if (isMobile) {
+      // Mobile: embed with Blob URL + open button (data: URIs don\\'t work in mobile iframes)
+      docRender.innerHTML = '<div class="mobile-pdf-container">' +
+        '<embed src="' + pdfBlobUrl + '" type="application/pdf" />' +
+        '<button onclick="window.open(\\'' + pdfBlobUrl + '\\',\\'_blank\\')" class="btn btn-primary mobile-pdf-open-btn">&#128196; Ouvrir le PDF</button>' +
+        '<p class="mobile-pdf-hint">Si le document ne s\\'affiche pas, appuyez sur le bouton ci-dessus</p>' +
+        '</div>';
+    } else {
+      // Desktop: iframe with Blob URL
+      docRender.innerHTML = '<iframe src="' + pdfBlobUrl + '" style="width:800px;height:1100px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)" id="pdfFrame"></iframe>';
+    }
   } else if (type === 'image') {
     var ext = DATA.document.name.split('.').pop().toLowerCase();
     var mimeMap = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp'};
@@ -210,7 +255,7 @@ function renderDocument() {
       docRender.innerHTML = '<div class="viewer-fallback"><p style="font-size:48px;margin-bottom:16px">&#128196;</p><p>Impossible d\\'afficher le contenu.</p></div>';
     }
   } else {
-    docRender.innerHTML = '<div class="viewer-fallback"><p style="font-size:48px;margin-bottom:16px">&#128196;</p><p style="font-size:16px;font-weight:400">' + escapeHtml(DATA.document.name) + '</p><p style="color:#737373;margin-top:8px">Aper\\u00e7u non disponible pour ce format.</p><p style="margin-top:16px"><a href="data:application/octet-stream;base64,' + b64 + '" download="' + escapeHtml(DATA.document.name) + '" class="btn btn-primary">T\\u00e9l\\u00e9charger</a></p></div>';
+    docRender.innerHTML = '<div class="viewer-fallback"><p style="font-size:48px;margin-bottom:16px">&#128196;</p><p style="font-size:16px;font-weight:400">' + escapeHtml(DATA.document.name) + '</p><p style="color:#737373;margin-top:8px">Aper\\u00e7u non disponible pour ce format.</p><p style="margin-top:16px;display:flex;flex-direction:column;gap:8px;align-items:center"><button onclick="downloadBlob(DATA.document.content,\\'application/octet-stream\\',\\'' + escapeHtml(DATA.document.name).replace(/'/g, "\\\\'") + '\\')" class="btn btn-primary">T\\u00e9l\\u00e9charger</button><button onclick="openBlobInNewTab(DATA.document.content,\\'application/octet-stream\\')" class="btn btn-secondary">Ouvrir</button></p></div>';
   }
 }
 

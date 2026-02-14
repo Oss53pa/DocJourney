@@ -49,7 +49,12 @@ button{font-family:inherit}
 .viewer-content{position:relative;transform-origin:top center;transition:transform .15s ease}
 .doc-render{position:relative}
 .doc-render img{display:block;max-width:100%}
-.doc-render iframe{display:block;border:none;background:#fff}
+.doc-render iframe{display:block;border:none;background:#fff;max-width:100%}
+.doc-render embed{display:block;border:none;background:#fff;max-width:100%}
+.mobile-pdf-container{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
+.mobile-pdf-container embed{width:100%;height:60vh;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.mobile-pdf-open-btn{width:100%;max-width:320px;justify-content:center;font-size:15px;padding:14px 24px}
+.mobile-pdf-hint{font-size:12px;color:#737373;text-align:center}
 .doc-render pre{white-space:pre-wrap;font-family:'JetBrains Mono',monospace;font-size:13px;padding:24px;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);min-width:600px}
 .viewer-fallback{text-align:center;padding:80px 40px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
 
@@ -433,6 +438,10 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
   .header-right .participant-badge .name{display:none}
   .viewer-toolbar{flex-wrap:wrap;gap:4px}
   .instructions-bar{font-size:12px}
+  .viewer-viewport{padding:8px}
+  .doc-render iframe{width:100%!important;height:70vh!important}
+  .doc-render pre{min-width:auto;font-size:11px;padding:12px}
+  .viewer-fallback{padding:40px 20px}
 }
 
 /* ===== OTP VERIFICATION SCREEN ===== */

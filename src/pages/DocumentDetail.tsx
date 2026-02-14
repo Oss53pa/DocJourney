@@ -16,6 +16,7 @@ import { DocumentStatusBadge } from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
 import { generatePackage, downloadFile, parseReturnFile } from '../services/packageService';
 import { createWorkflow, processReturn, cancelWorkflow, type StepConfig } from '../services/workflowService';
+import { autoAdvanceToNextStep } from '../services/autoAdvanceService';
 import { generateValidationReport, downloadReport, getReport } from '../services/reportService';
 import { generateEmailTemplate, copyToClipboard, sendEmailViaEmailJS, isEmailJSConfigured } from '../services/emailService';
 import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from '../services/firebaseSyncService';
@@ -208,6 +209,9 @@ export default function DocumentDetail() {
       const returnData = parseReturnFile(text);
       if (!returnData) { showMsg('Fichier invalide', 'error'); return; }
       const result = await processReturn(workflow.id, returnData);
+      if (result.success && returnData.decision !== 'rejected' && returnData.decision !== 'modification_requested') {
+        await autoAdvanceToNextStep(workflow.id);
+      }
       showMsg(result.message, result.success ? 'success' : 'error');
       await loadData();
     } catch {
