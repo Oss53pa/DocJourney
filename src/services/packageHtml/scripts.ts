@@ -201,6 +201,15 @@ function base64ToBlob(b64, mime) {
   return new Blob([new Uint8Array(byteNumbers)], { type: mime });
 }
 
+function base64ToUint8Array(b64) {
+  var byteChars = atob(b64);
+  var byteArray = new Uint8Array(byteChars.length);
+  for (var i = 0; i < byteChars.length; i++) {
+    byteArray[i] = byteChars.charCodeAt(i);
+  }
+  return byteArray;
+}
+
 function openBlobInNewTab(b64, mime) {
   var blob = base64ToBlob(b64, mime);
   var url = URL.createObjectURL(blob);
@@ -219,6 +228,93 @@ function downloadBlob(b64, mime, filename) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
 }
 
+// ===== PDF.JS RENDERER (mobile) =====
+var _pdfjsLoaded = false;
+var _pdfjsCallbacks = [];
+
+function loadPdfJs(callback) {
+  if (_pdfjsLoaded && window.pdfjsLib) { callback(); return; }
+  _pdfjsCallbacks.push(callback);
+  if (_pdfjsCallbacks.length > 1) return;
+
+  var script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  script.onload = function() {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    _pdfjsLoaded = true;
+    _pdfjsCallbacks.forEach(function(cb) { cb(); });
+    _pdfjsCallbacks = [];
+  };
+  script.onerror = function() {
+    _pdfjsCallbacks.forEach(function(cb) { cb(new Error('Failed to load pdf.js')); });
+    _pdfjsCallbacks = [];
+  };
+  document.head.appendChild(script);
+}
+
+function renderPdfToCanvas(pdfData, container) {
+  var pdfBytes = base64ToUint8Array(pdfData);
+
+  loadPdfJs(function(err) {
+    if (err) {
+      container.innerHTML = '<div class="viewer-fallback"><p style="font-size:48px;margin-bottom:16px">&#128196;</p>' +
+        '<p>Impossible de charger le visualiseur PDF.</p>' +
+        '<button onclick="openBlobInNewTab(DATA.document.previewContent||DATA.document.content,\\'application/pdf\\')" class="btn btn-primary" style="margin-top:16px">Ouvrir le PDF</button></div>';
+      return;
+    }
+
+    var loadingTask = window.pdfjsLib.getDocument({ data: pdfBytes });
+    loadingTask.promise.then(function(pdf) {
+      state.totalPages = pdf.numPages;
+      updatePageDisplay();
+      container.innerHTML = '';
+
+      var devicePixelRatio = window.devicePixelRatio || 1;
+      var containerWidth = container.parentElement ? container.parentElement.clientWidth - 16 : window.innerWidth - 32;
+
+      for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        (function(num) {
+          pdf.getPage(num).then(function(page) {
+            // Scale to fit container width with good resolution
+            var unscaledViewport = page.getViewport({ scale: 1 });
+            var cssScale = containerWidth / unscaledViewport.width;
+            var renderScale = cssScale * devicePixelRatio;
+            var viewport = page.getViewport({ scale: renderScale });
+
+            var canvas = document.createElement('canvas');
+            canvas.className = 'pdf-page-canvas';
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.width = containerWidth + 'px';
+            canvas.style.height = Math.round(containerWidth * (viewport.height / viewport.width)) + 'px';
+            canvas.dataset.page = String(num);
+
+            var ctx = canvas.getContext('2d');
+            page.render({ canvasContext: ctx, viewport: viewport });
+
+            // Insert pages in order
+            var pages = container.querySelectorAll('.pdf-page-canvas');
+            var inserted = false;
+            for (var j = 0; j < pages.length; j++) {
+              if (parseInt(pages[j].dataset.page) > num) {
+                container.insertBefore(canvas, pages[j]);
+                inserted = true;
+                break;
+              }
+            }
+            if (!inserted) container.appendChild(canvas);
+          });
+        })(pageNum);
+      }
+    }).catch(function(error) {
+      console.error('pdf.js render error:', error);
+      container.innerHTML = '<div class="viewer-fallback"><p style="font-size:48px;margin-bottom:16px">&#128196;</p>' +
+        '<p>Erreur lors du chargement du PDF.</p>' +
+        '<button onclick="openBlobInNewTab(DATA.document.previewContent||DATA.document.content,\\'application/pdf\\')" class="btn btn-primary" style="margin-top:16px">Ouvrir le PDF</button></div>';
+    });
+  });
+}
+
 function renderDocument() {
   var docRender = document.getElementById('docRender');
   var type = DATA.document.type;
@@ -227,18 +323,16 @@ function renderDocument() {
 
   if (type === 'pdf' || DATA.document.previewContent) {
     var pdfData = DATA.document.previewContent || b64;
-    var pdfBlob = base64ToBlob(pdfData, 'application/pdf');
-    var pdfBlobUrl = URL.createObjectURL(pdfBlob);
 
     if (isMobile) {
-      // Mobile: embed with Blob URL + open button (data: URIs don\\'t work in mobile iframes)
-      docRender.innerHTML = '<div class="mobile-pdf-container">' +
-        '<embed src="' + pdfBlobUrl + '" type="application/pdf" />' +
-        '<button onclick="window.open(\\'' + pdfBlobUrl + '\\',\\'_blank\\')" class="btn btn-primary mobile-pdf-open-btn">&#128196; Ouvrir le PDF</button>' +
-        '<p class="mobile-pdf-hint">Si le document ne s\\'affiche pas, appuyez sur le bouton ci-dessus</p>' +
-        '</div>';
+      // Mobile: render PDF pages as canvas via pdf.js (iframes/embeds don\\'t work on mobile)
+      docRender.innerHTML = '<div class="mobile-pdf-container"><div class="mobile-pdf-loading"><div class="pdf-loading-spinner"></div><p>Chargement du document...</p></div></div>';
+      var container = docRender.querySelector('.mobile-pdf-container');
+      renderPdfToCanvas(pdfData, container);
     } else {
       // Desktop: iframe with Blob URL
+      var pdfBlob = base64ToBlob(pdfData, 'application/pdf');
+      var pdfBlobUrl = URL.createObjectURL(pdfBlob);
       docRender.innerHTML = '<iframe src="' + pdfBlobUrl + '" style="width:800px;height:1100px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)" id="pdfFrame"></iframe>';
     }
   } else if (type === 'image') {
