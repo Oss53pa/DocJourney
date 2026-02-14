@@ -2692,9 +2692,15 @@ function copyEmail() {
 }
 
 function closeWindow() {
+  // Try multiple close strategies
   window.close();
-  // Fallback: if window.close() is blocked by the browser
-  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#525252;text-align:center"><div><h2>Vous pouvez fermer cette fen\\u00eatre</h2><p>Le navigateur ne permet pas la fermeture automatique.<br>Veuillez fermer cet onglet manuellement.</p></div></div>';
+  try { window.open('', '_self').close(); } catch(e) {}
+  // Fallback after a short delay if still open
+  setTimeout(function() {
+    if (!window.closed) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#525252;text-align:center;background:#f9fafb"><div><h2 style="margin-bottom:8px">Vous pouvez fermer cet onglet</h2><p style="color:#6b7280">Le navigateur ne permet pas la fermeture automatique.<br>Utilisez <strong>Ctrl+W</strong> ou fermez l\\u2019onglet manuellement.</p></div></div>';
+    }
+  }, 300);
 }
 
 // ===== MODALS =====
