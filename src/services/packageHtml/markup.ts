@@ -772,6 +772,7 @@ function downloadScreenHTML(data: PackageData): string {
 
   return `
 <div class="download-screen" id="downloadScreen">
+  <button class="close-page-btn" onclick="closeWindow()" title="Fermer">&times;</button>
   <div class="download-screen-inner">
     <div class="dl-icon-wrap" id="downloadIcon"></div>
     <h2>D\u00e9cision enregistr\u00e9e</h2>
@@ -806,10 +807,7 @@ function downloadScreenHTML(data: PackageData): string {
       </div>
       ` : ''}
     </div>
-    <div class="dl-footer">
-      Merci pour votre participation
-      <button class="btn btn-secondary" onclick="closeWindow()" style="margin-top:12px;display:block;margin-left:auto;margin-right:auto">Fermer cette page</button>
-    </div>
+    <div class="dl-footer">Merci pour votre participation</div>
   </div>
 </div>`;
 }

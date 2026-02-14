@@ -353,6 +353,8 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
 /* ===== DOWNLOAD SCREEN ===== */
 .download-screen{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:900;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px 20px}
 .download-screen.visible{display:flex}
+.close-page-btn{position:absolute;top:16px;right:16px;width:36px;height:36px;border:none;background:#f5f5f5;border-radius:50%;font-size:22px;line-height:1;color:#525252;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.close-page-btn:hover{background:#e5e5e5;color:#171717}
 .download-screen-inner{max-width:420px;width:100%;display:flex;flex-direction:column;align-items:center}
 
 /* Icon */
