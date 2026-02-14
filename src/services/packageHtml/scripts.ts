@@ -157,10 +157,25 @@ function initMainContent() {
     // Attach viewport click (avoids inline onclick timing issues in srcdoc iframes)
     var vp = document.getElementById('viewerViewport');
     if (vp) vp.addEventListener('click', function(e) { handleViewportClick(e); });
+    // Populate mobile drawer with initial active tab
+    if (window.innerWidth <= 768) {
+      switchTab(state.activeTab, true);
+      collapseMobileDrawer();
+    }
   } catch(e) { console.error('Init main content error:', e); }
 }
 
 // ===== TAB SYSTEM =====
+var _movedMobilePane = null;
+var _tabContentContainer = null;
+
+function restoreMobilePane() {
+  if (_movedMobilePane && _tabContentContainer) {
+    _tabContentContainer.appendChild(_movedMobilePane);
+    _movedMobilePane = null;
+  }
+}
+
 function switchTab(tab, isMobile) {
   state.activeTab = tab;
 
@@ -180,12 +195,18 @@ function switchTab(tab, isMobile) {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
   });
 
-  // Clone content to mobile drawer
+  // Move actual DOM node to mobile drawer (preserves event listeners, canvas state, etc.)
   if (isMobile) {
+    restoreMobilePane();
+
     var activePane = document.querySelector('.tab-pane.active');
-    if (activePane) {
-      var drawer = document.getElementById('mobileDrawerContent');
-      drawer.innerHTML = activePane.innerHTML;
+    var drawer = document.getElementById('mobileDrawerContent');
+    if (activePane && drawer) {
+      if (!_tabContentContainer) {
+        _tabContentContainer = activePane.parentElement;
+      }
+      drawer.appendChild(activePane);
+      _movedMobilePane = activePane;
     }
     expandMobileDrawer();
   }
@@ -1323,6 +1344,11 @@ function startInitialsPlacement() {
   var overlay = document.getElementById('initialsPlacementOverlay');
   if (!overlay) return;
 
+  // Collapse mobile drawer so the user can see the document
+  if (window.innerWidth <= 768) {
+    collapseMobileDrawer();
+  }
+
   // Show overlay
   overlay.style.display = 'block';
 
@@ -1852,6 +1878,11 @@ function startSigPlacement() {
   var draggable = document.getElementById('sigDraggable');
   var img = document.getElementById('sigDraggableImg');
   if (!overlay || !draggable || !img) return;
+
+  // Collapse mobile drawer so the user can see the document
+  if (window.innerWidth <= 768) {
+    collapseMobileDrawer();
+  }
 
   img.src = sigImage;
   // Apply stored scale
@@ -2797,6 +2828,10 @@ function setupResizeHandler() {
     var nowMobile = window.innerWidth <= 768;
     if (nowMobile !== isMobile) {
       isMobile = nowMobile;
+      // Moving from mobile to desktop: restore pane to side panel
+      if (!nowMobile) {
+        restoreMobilePane();
+      }
       // Re-setup signature canvas on resize
       setupSignature();
     }
