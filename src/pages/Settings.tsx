@@ -864,10 +864,6 @@ export default function Settings() {
               <p className="font-normal text-neutral-500">Version 1.0.0</p>
               <p>Stockage local (IndexedDB) avec synchronisation cloud optionnelle</p>
             </div>
-            <div className="mt-6 pt-4 border-t border-neutral-100">
-              <p className="text-xs text-neutral-500">Développé par <span className="font-normal text-neutral-700">Pamela Atokouna</span></p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Tous droits réservés — Décembre 2025</p>
-            </div>
           </div>
         )}
 

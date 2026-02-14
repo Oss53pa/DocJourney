@@ -681,13 +681,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="pt-8 pb-4 text-center border-t border-neutral-200/60 mt-8">
-        <p className="text-[11px] text-neutral-400">
-          Développé par <span className="font-medium text-neutral-500">Pamela Atokouna</span> — Tous droits réservés
-        </p>
-      </footer>
-
       {/* Delete confirmation modal */}
       <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Supprimer" size="sm">
         <div className="space-y-5">
