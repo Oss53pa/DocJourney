@@ -261,7 +261,8 @@ function loadPdfJs(callback) {
   var script = document.createElement('script');
   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
   script.onload = function() {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // Disable worker to avoid CORS/CSP issues on mobile hosted pages
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '';
     _pdfjsLoaded = true;
     _pdfjsCallbacks.forEach(function(cb) { cb(); });
     _pdfjsCallbacks = [];
@@ -290,45 +291,58 @@ function renderPdfToCanvas(pdfData, container) {
       updatePageDisplay();
       container.innerHTML = '';
 
-      var devicePixelRatio = window.devicePixelRatio || 1;
       // Use viewport element width (reliable on mobile), fall back to window width
-      var viewport = document.getElementById('viewerViewport');
-      var containerWidth = (viewport ? viewport.clientWidth : window.innerWidth) - 32;
+      var vp = document.getElementById('viewerViewport');
+      var containerWidth = (vp ? vp.clientWidth : window.innerWidth) - 32;
       if (containerWidth <= 0) containerWidth = window.innerWidth - 32;
 
-      for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        (function(num) {
-          pdf.getPage(num).then(function(page) {
-            // Scale to fit container width with good resolution
-            var unscaledViewport = page.getViewport({ scale: 1 });
-            var cssScale = containerWidth / unscaledViewport.width;
-            var renderScale = cssScale * devicePixelRatio;
-            var viewport = page.getViewport({ scale: renderScale });
+      function renderPage(num) {
+        pdf.getPage(num).then(function(page) {
+          // Scale to fit container width — use CSS pixels only (no devicePixelRatio)
+          // to keep canvas small enough for mobile GPU/memory limits
+          var unscaledViewport = page.getViewport({ scale: 1 });
+          var scale = containerWidth / unscaledViewport.width;
+          var scaledViewport = page.getViewport({ scale: scale });
 
-            var canvas = document.createElement('canvas');
-            canvas.className = 'pdf-page-canvas';
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            canvas.style.width = containerWidth + 'px';
-            canvas.style.height = Math.round(containerWidth * (viewport.height / viewport.width)) + 'px';
-            canvas.dataset.page = String(num);
+          var canvas = document.createElement('canvas');
+          canvas.className = 'pdf-page-canvas';
+          canvas.width = Math.floor(scaledViewport.width);
+          canvas.height = Math.floor(scaledViewport.height);
+          canvas.style.width = containerWidth + 'px';
+          canvas.style.height = Math.floor(containerWidth * (unscaledViewport.height / unscaledViewport.width)) + 'px';
+          canvas.dataset.page = String(num);
 
-            var ctx = canvas.getContext('2d');
-            page.render({ canvasContext: ctx, viewport: viewport });
-
-            // Insert pages in order
-            var pages = container.querySelectorAll('.pdf-page-canvas');
-            var inserted = false;
-            for (var j = 0; j < pages.length; j++) {
-              if (parseInt(pages[j].dataset.page) > num) {
-                container.insertBefore(canvas, pages[j]);
-                inserted = true;
-                break;
-              }
+          // Insert into DOM before rendering (some mobile browsers need this)
+          var pages = container.querySelectorAll('.pdf-page-canvas');
+          var inserted = false;
+          for (var j = 0; j < pages.length; j++) {
+            if (parseInt(pages[j].dataset.page) > num) {
+              container.insertBefore(canvas, pages[j]);
+              inserted = true;
+              break;
             }
-            if (!inserted) container.appendChild(canvas);
+          }
+          if (!inserted) container.appendChild(canvas);
+
+          var ctx = canvas.getContext('2d');
+          if (!ctx) {
+            console.error('Failed to get canvas 2d context for page ' + num);
+            return;
+          }
+
+          var renderTask = page.render({ canvasContext: ctx, viewport: scaledViewport });
+          renderTask.promise.then(function() {
+            // Page rendered successfully
+          }).catch(function(renderErr) {
+            console.error('PDF page ' + num + ' render failed:', renderErr);
           });
-        })(pageNum);
+        }).catch(function(pageErr) {
+          console.error('Failed to get page ' + num + ':', pageErr);
+        });
+      }
+
+      for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        renderPage(pageNum);
       }
     }).catch(function(error) {
       console.error('pdf.js render error:', error);

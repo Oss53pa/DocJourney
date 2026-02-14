@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, createContext, useContext } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import { Menu, AlertTriangle, X, WifiOff } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -9,6 +9,12 @@ import { useReminderChecker } from '../../hooks/useReminders';
 import { useRetentionProcessor } from '../../hooks/useRetention';
 import { useSettings } from '../../hooks/useSettings';
 import { useStorageQuota } from '../../hooks/useStorageQuota';
+import { useFirebaseSync, type UseFirebaseSyncResult } from '../../hooks/useFirebaseSync';
+
+const FirebaseSyncContext = createContext<UseFirebaseSyncResult | null>(null);
+export function useFirebaseSyncContext() {
+  return useContext(FirebaseSyncContext);
+}
 
 const pageTitles: Record<string, string> = {
   '/': 'Tableau de bord',
@@ -41,6 +47,9 @@ export default function AppLayout() {
 
   // Background retention processor
   useRetentionProcessor(settings.retentionEnabled ?? false);
+
+  // Firebase sync — always running so returns are processed on any page
+  const firebaseSync = useFirebaseSync();
 
   const pageTitle = pageTitles[location.pathname] || '';
 
@@ -120,9 +129,11 @@ export default function AppLayout() {
           </div>
         )}
 
-        <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-          <Outlet />
-        </div>
+        <FirebaseSyncContext.Provider value={firebaseSync}>
+          <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+            <Outlet />
+          </div>
+        </FirebaseSyncContext.Provider>
       </main>
 
       <FloatingHelpButton />

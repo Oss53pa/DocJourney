@@ -21,7 +21,8 @@ import { useUpcomingDeadlines } from '../hooks/useReminders';
 import { generateMailtoLink } from '../services/reminderService';
 import { useSettings } from '../hooks/useSettings';
 import BlockedWorkflowsList from '../components/blockage/BlockedWorkflowsList';
-import { useFirebaseSync } from '../hooks/useFirebaseSync';
+import { useFirebaseSyncContext } from '../components/layout/AppLayout';
+import type { UseFirebaseSyncResult } from '../hooks/useFirebaseSync';
 
 interface DocWithWorkflow {
   doc: DocJourneyDocument;
@@ -69,7 +70,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const { deadlines } = useUpcomingDeadlines(14);
-  const firebaseSync = useFirebaseSync();
+  const firebaseSync = useFirebaseSyncContext() as UseFirebaseSyncResult;
   const [drafts, setDrafts] = useState<DocWithWorkflow[]>([]);
   const [inProgress, setInProgress] = useState<DocWithWorkflow[]>([]);
   const [completed, setCompleted] = useState<DocWithWorkflow[]>([]);
