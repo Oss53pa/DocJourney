@@ -46,8 +46,8 @@ export async function generatePackage(
         completedAt: s.completedAt || new Date(),
         decision: s.response.decision,
         generalComment: s.response.generalComment,
-        annotationCount: s.response.annotations.length,
-        annotations: s.response.annotations,
+        annotationCount: (s.response.annotations || []).length,
+        annotations: s.response.annotations || [],
         color: getParticipantColor(i),
       });
     }

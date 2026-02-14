@@ -160,7 +160,7 @@ export async function processReturn(
 
   const response: StepResponse = {
     decision: returnData.decision,
-    annotations: returnData.annotations,
+    annotations: returnData.annotations || [],
     generalComment: returnData.generalComment,
     signature: returnData.signature,
     initials: returnData.initials,
@@ -396,7 +396,7 @@ export async function processParallelReturn(
 
   const response: StepResponse = {
     decision: returnData.decision,
-    annotations: returnData.annotations,
+    annotations: returnData.annotations || [],
     generalComment: returnData.generalComment,
     signature: returnData.signature,
     initials: returnData.initials,
