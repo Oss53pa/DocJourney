@@ -117,7 +117,7 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
             <React.Fragment key={step.id}>
               <div className="flex items-center justify-center" style={{ width: 36 }}>
                 {isCurrent && (
-                  <Send size={16} strokeWidth={2.5} className="text-sky-500 rotate-[90deg] animate-bounce" />
+                  <Send size={16} strokeWidth={2.5} className="text-sky-500 animate-bounce" />
                 )}
               </div>
               {i < steps.length - 1 && <div className="flex-1" />}
@@ -129,7 +129,7 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
         {/* End node plane */}
         <div className="flex items-center justify-center" style={{ width: 36 }}>
           {isFinished && (
-            <Send size={16} strokeWidth={2.5} className={`rotate-[90deg] animate-bounce ${
+            <Send size={16} strokeWidth={2.5} className={`animate-bounce ${
               isRejected ? 'text-red-500' : 'text-emerald-500'
             }`} />
           )}
