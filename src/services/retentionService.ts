@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { generateId } from '../utils';
+import { addDays } from '../utils/dateUtils';
 import { logActivity } from './activityService';
 import { deletePackageFromStorage, getFirebaseConfig, isSyncConfigured } from './firebaseSyncService';
 import type { DocumentRetention, RetentionMode } from '../types';
@@ -22,7 +23,7 @@ export async function scheduleRetention(documentId: string, documentName: string
 
   const retentionDays = settings.retentionDays ?? 7;
   const now = new Date();
-  const scheduledDeletionAt = new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000);
+  const scheduledDeletionAt = addDays(now, retentionDays);
 
   const retention: DocumentRetention = {
     id: generateId(),
@@ -56,7 +57,7 @@ export async function processRetentions(): Promise<void> {
 
   // Pass 1: Send notifications
   if (settings.retentionNotifyBeforeDeletion) {
-    const notifyThreshold = new Date(now.getTime() + notifyDaysBefore * 24 * 60 * 60 * 1000);
+    const notifyThreshold = addDays(now, notifyDaysBefore);
     for (const retention of allRetentions) {
       if (
         !retention.isProtected &&
@@ -120,7 +121,7 @@ export async function unprotectDocument(documentId: string): Promise<void> {
   const settings = await db.settings.get('default');
   const retentionDays = settings?.retentionDays ?? 7;
   const now = new Date();
-  const scheduledDeletionAt = new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000);
+  const scheduledDeletionAt = addDays(now, retentionDays);
 
   await db.documentRetention.update(retention.id, {
     isProtected: false,
@@ -137,7 +138,7 @@ export async function extendRetention(documentId: string, additionalDays: number
   if (!retention) return;
 
   const currentDate = new Date(retention.scheduledDeletionAt);
-  const newDate = new Date(currentDate.getTime() + additionalDays * 24 * 60 * 60 * 1000);
+  const newDate = addDays(currentDate, additionalDays);
 
   await db.documentRetention.update(retention.id, {
     scheduledDeletionAt: newDate,

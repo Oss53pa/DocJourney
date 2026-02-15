@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { generateId, formatDate } from '../utils';
+import { addDays, startOfDay, startOfWeek } from '../utils/dateUtils';
 import type { ActivityType, ActivityEntry } from '../types';
 
 // ── Categories ──
@@ -256,9 +257,9 @@ export interface GroupedActivities {
 
 export function groupActivitiesByDate(activities: ActivityEntry[]): GroupedActivities[] {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 86400000);
-  const weekStart = new Date(today.getTime() - today.getDay() * 86400000);
+  const today = startOfDay(now);
+  const yesterday = addDays(today, -1);
+  const weekStart = startOfWeek(today);
 
   const groups: Map<string, GroupedActivities> = new Map();
 

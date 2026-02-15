@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import Modal from '../common/Modal';
+import { addDays } from '../../utils/dateUtils';
 import { extendRetention } from '../../services/retentionService';
 
 interface ExtendRetentionModalProps {
@@ -27,7 +28,7 @@ export default function ExtendRetentionModal({
   const [days, setDays] = useState(7);
   const [submitting, setSubmitting] = useState(false);
 
-  const newDate = new Date(new Date(currentEndDate).getTime() + days * 24 * 60 * 60 * 1000);
+  const newDate = addDays(new Date(currentEndDate), days);
 
   const handleConfirm = async () => {
     setSubmitting(true);

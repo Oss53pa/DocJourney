@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { generateId } from '../utils';
+import { addDays } from '../utils/dateUtils';
 import { logActivity } from './activityService';
 import type { Reminder, ReminderType, Workflow } from '../types';
 
@@ -40,7 +41,7 @@ export async function getUpcomingDeadlines(days: number = 7): Promise<{
   documentName: string;
 }[]> {
   const now = new Date();
-  const limit = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  const limit = addDays(now, days);
 
   const workflows = await db.workflows
     .filter(w => !w.completedAt && !!w.deadline)
@@ -116,7 +117,7 @@ export async function generateWorkflowReminders(
   const deadline = new Date(workflow.deadline);
 
   // Reminder X days before deadline
-  const reminderDate = new Date(deadline.getTime() - advanceDays * 24 * 60 * 60 * 1000);
+  const reminderDate = addDays(deadline, -advanceDays);
   if (reminderDate > new Date()) {
     await createReminder(
       workflow.documentId,

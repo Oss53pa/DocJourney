@@ -11,6 +11,7 @@ import {
   exportActivityHistory, getActivityCategory,
   type ActivityFilters, type ActivityStats, type ActivityCategory,
 } from '../services/activityService';
+import { addDays, startOfDay, startOfWeek } from '../utils/dateUtils';
 import type { ActivityEntry, ActivityType } from '../types';
 import { formatDate, formatRelativeTime } from '../utils';
 import EmptyState from '../components/common/EmptyState';
@@ -49,19 +50,18 @@ type PeriodPreset = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'all';
 
 function getPeriodDates(preset: PeriodPreset): { start?: Date; end?: Date } {
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = startOfDay(now);
 
   switch (preset) {
     case 'today':
       return { start: today };
     case 'yesterday': {
-      const yesterday = new Date(today.getTime() - 86400000);
+      const yesterday = addDays(today, -1);
       return { start: yesterday, end: today };
     }
     case 'this_week': {
-      const dayOfWeek = today.getDay();
-      const weekStart = new Date(today.getTime() - dayOfWeek * 86400000);
-      return { start: weekStart };
+      const weekStartDate = startOfWeek(today);
+      return { start: weekStartDate };
     }
     case 'this_month': {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

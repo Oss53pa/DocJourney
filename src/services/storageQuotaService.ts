@@ -4,6 +4,7 @@
  */
 
 import { db } from '../db';
+import { addDays } from '../utils/dateUtils';
 
 export interface StorageQuotaInfo {
   used: number;           // Bytes used
@@ -245,8 +246,8 @@ export async function getCleanableDocuments(): Promise<Array<{
 }>> {
   const allDocs = await db.documents.toArray();
   const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = addDays(now, -30);
+  const ninetyDaysAgo = addDays(now, -90);
 
   const cleanable: Array<{
     id: string;
