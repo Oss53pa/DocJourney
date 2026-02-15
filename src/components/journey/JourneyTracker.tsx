@@ -17,8 +17,7 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
 
   return (
     <div className={compact ? '' : 'py-1'}>
-      {/* Dots + lines + plane indicator */}
-      <div className="flex items-center px-1">
+      <div className="flex items-start px-1">
         {steps.map((step, i) => {
           const isDone = step.status === 'completed';
           const isRej = step.status === 'rejected';
@@ -42,29 +41,70 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
             tooltip += ' (correction demandée)';
           }
 
+          const firstName = step.participant.name.split(' ')[0];
+
           return (
             <React.Fragment key={step.id}>
-              <div
-                className={dotClass}
-                title={tooltip}
-              >
-                {isDone ? (
-                  <Check size={14} strokeWidth={3} />
-                ) : isRej ? (
-                  <X size={14} strokeWidth={3} />
-                ) : isCorrection ? (
-                  <RotateCcw size={12} strokeWidth={2.5} />
-                ) : isParallel ? (
-                  <Users size={12} strokeWidth={2} />
-                ) : isCurrent ? (
-                  <span className="text-[10px] font-bold">{i + 1}</span>
-                ) : (
-                  <span className="text-[10px] font-normal">{i + 1}</span>
+              {/* Step column: dot + plane + label */}
+              <div className="flex flex-col items-center min-w-0" style={{ width: compact ? undefined : 80 }}>
+                <div
+                  className={dotClass}
+                  title={tooltip}
+                >
+                  {isDone ? (
+                    <Check size={14} strokeWidth={3} />
+                  ) : isRej ? (
+                    <X size={14} strokeWidth={3} />
+                  ) : isCorrection ? (
+                    <RotateCcw size={12} strokeWidth={2.5} />
+                  ) : isParallel ? (
+                    <Users size={12} strokeWidth={2} />
+                  ) : isCurrent ? (
+                    <span className="text-[10px] font-bold">{i + 1}</span>
+                  ) : (
+                    <span className="text-[10px] font-normal">{i + 1}</span>
+                  )}
+                </div>
+
+                {/* Plane + label below dot */}
+                {!compact && (
+                  <div className="hidden sm:flex flex-col items-center mt-2">
+                    <div className="h-5 flex items-center justify-center">
+                      {isCurrent && (
+                        <Send size={14} strokeWidth={2.5} className="text-sky-500 animate-bounce" />
+                      )}
+                    </div>
+                    {isParallel ? (
+                      <>
+                        <p className={`text-xs font-normal truncate max-w-[76px] ${isCurrent ? 'text-sky-700 font-medium' : 'text-purple-700'}`}>
+                          {step.parallelParticipants!.length} signataires
+                        </p>
+                        <p className={`text-[10px] font-normal ${isCurrent ? 'text-sky-500' : 'text-purple-500'}`}>
+                          {step.parallelMode === 'all' ? 'Tous' : 'Un seul'}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className={`text-xs truncate max-w-[76px] ${
+                          isCurrent ? 'font-medium text-sky-700' : isCorrection ? 'font-normal text-amber-700' : 'font-normal text-neutral-800'
+                        }`}>
+                          {firstName}
+                        </p>
+                        <p className={`text-[10px] font-normal ${
+                          isCurrent ? 'text-sky-500' : isCorrection ? 'text-amber-500' : 'text-neutral-400'
+                        }`}>
+                          {isCorrection ? 'Correction' : getRoleAction(step.role)}
+                        </p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {/* Line between steps */}
               {i < steps.length - 1 && (
                 <div
-                  className={`journey-line ${
+                  className={`journey-line self-center mt-[14px] ${
                     isDone
                       ? 'bg-emerald-400'
                       : isRej
@@ -73,6 +113,7 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
                       ? 'bg-amber-400'
                       : 'bg-neutral-200'
                   }`}
+                  style={{ marginTop: 18 }}
                 />
               )}
             </React.Fragment>
@@ -88,10 +129,11 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
               ? 'bg-red-400'
               : 'bg-neutral-200'
           }`}
+          style={{ marginTop: 18 }}
         />
 
-        {/* End node: Terminé */}
-        <div>
+        {/* End column: Terminé */}
+        <div className="flex flex-col items-center">
           <div
             className={`journey-dot ${
               isCompleted
@@ -106,69 +148,25 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
           >
             <Flag size={14} strokeWidth={2.5} />
           </div>
-        </div>
-      </div>
 
-      {/* Labels (desktop only if not compact) */}
-      {!compact && (
-        <div className="hidden sm:flex mt-3 px-0">
-          {steps.map((step) => {
-            const isParallel = step.isParallel && step.parallelParticipants;
-            const firstName = step.participant.name.split(' ')[0];
-            const isCorrection = step.status === 'correction_requested';
-            const isCurrent = !isFinished && steps.indexOf(step) === workflow.currentStepIndex;
-
-            return (
-              <div key={step.id} className="text-center flex-1 min-w-0 px-1">
-                {/* Plane icon above the current participant's name */}
-                <div className="h-5 flex items-center justify-center">
-                  {isCurrent && (
-                    <Send size={14} strokeWidth={2.5} className="text-sky-500 animate-bounce" />
-                  )}
-                </div>
-                {isParallel ? (
-                  <>
-                    <p className={`text-xs font-normal truncate ${isCurrent ? 'text-sky-700 font-medium' : 'text-purple-700'}`}>
-                      {step.parallelParticipants!.length} signataires
-                    </p>
-                    <p className={`text-[10px] font-normal ${isCurrent ? 'text-sky-500' : 'text-purple-500'}`}>
-                      {step.parallelMode === 'all' ? 'Tous' : 'Un seul'}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className={`text-xs truncate ${
-                      isCurrent ? 'font-medium text-sky-700' : isCorrection ? 'font-normal text-amber-700' : 'font-normal text-neutral-800'
-                    }`}>
-                      {firstName}
-                    </p>
-                    <p className={`text-[10px] font-normal ${
-                      isCurrent ? 'text-sky-500' : isCorrection ? 'text-amber-500' : 'text-neutral-400'
-                    }`}>
-                      {isCorrection ? 'Correction' : getRoleAction(step.role)}
-                    </p>
-                  </>
+          {!compact && (
+            <div className="hidden sm:flex flex-col items-center mt-2">
+              <div className="h-5 flex items-center justify-center">
+                {isFinished && (
+                  <Send size={14} strokeWidth={2.5} className={`animate-bounce ${
+                    isRejected ? 'text-red-500' : 'text-emerald-500'
+                  }`} />
                 )}
               </div>
-            );
-          })}
-          {/* End label */}
-          <div className="text-center min-w-[48px] px-1">
-            <div className="h-5 flex items-center justify-center">
-              {isFinished && (
-                <Send size={14} strokeWidth={2.5} className={`animate-bounce ${
-                  isRejected ? 'text-red-500' : 'text-emerald-500'
-                }`} />
-              )}
+              <p className={`text-xs font-normal ${
+                isCompleted ? 'text-emerald-700' : isRejected ? 'text-red-700' : 'text-neutral-400'
+              }`}>
+                {isRejected ? 'Rejeté' : 'Terminé'}
+              </p>
             </div>
-            <p className={`text-xs font-normal ${
-              isCompleted ? 'text-emerald-700' : isRejected ? 'text-red-700' : 'text-neutral-400'
-            }`}>
-              {isRejected ? 'Rejeté' : 'Terminé'}
-            </p>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
