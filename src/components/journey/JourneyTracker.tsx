@@ -109,36 +109,9 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
         </div>
       </div>
 
-      {/* Plane indicator row */}
-      <div className={`flex px-1 ${compact ? 'mt-1' : 'mt-2'}`}>
-        {steps.map((step, i) => {
-          const isCurrent = !isFinished && i === workflow.currentStepIndex;
-          return (
-            <React.Fragment key={step.id}>
-              <div className="flex items-center justify-center" style={{ width: 36 }}>
-                {isCurrent && (
-                  <Send size={16} strokeWidth={2.5} className="text-sky-500 animate-bounce" />
-                )}
-              </div>
-              {i < steps.length - 1 && <div className="flex-1" />}
-            </React.Fragment>
-          );
-        })}
-        {/* Spacer for line to end */}
-        <div className="flex-1" />
-        {/* End node plane */}
-        <div className="flex items-center justify-center" style={{ width: 36 }}>
-          {isFinished && (
-            <Send size={16} strokeWidth={2.5} className={`animate-bounce ${
-              isRejected ? 'text-red-500' : 'text-emerald-500'
-            }`} />
-          )}
-        </div>
-      </div>
-
       {/* Labels (desktop only if not compact) */}
       {!compact && (
-        <div className="hidden sm:flex mt-1 px-0">
+        <div className="hidden sm:flex mt-3 px-0">
           {steps.map((step) => {
             const isParallel = step.isParallel && step.parallelParticipants;
             const firstName = step.participant.name.split(' ')[0];
@@ -147,6 +120,12 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
 
             return (
               <div key={step.id} className="text-center flex-1 min-w-0 px-1">
+                {/* Plane icon above the current participant's name */}
+                <div className="h-5 flex items-center justify-center">
+                  {isCurrent && (
+                    <Send size={14} strokeWidth={2.5} className="text-sky-500 animate-bounce" />
+                  )}
+                </div>
                 {isParallel ? (
                   <>
                     <p className={`text-xs font-normal truncate ${isCurrent ? 'text-sky-700 font-medium' : 'text-purple-700'}`}>
@@ -175,6 +154,13 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
           })}
           {/* End label */}
           <div className="text-center min-w-[48px] px-1">
+            <div className="h-5 flex items-center justify-center">
+              {isFinished && (
+                <Send size={14} strokeWidth={2.5} className={`animate-bounce ${
+                  isRejected ? 'text-red-500' : 'text-emerald-500'
+                }`} />
+              )}
+            </div>
             <p className={`text-xs font-normal ${
               isCompleted ? 'text-emerald-700' : isRejected ? 'text-red-700' : 'text-neutral-400'
             }`}>
