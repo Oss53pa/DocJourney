@@ -44,31 +44,23 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
 
           return (
             <React.Fragment key={step.id}>
-              {/* Step dot with plane indicator */}
-              <div className="relative">
-                {isCurrent && (
-                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-sky-500 animate-bounce">
-                    <Send size={16} strokeWidth={2.5} className="rotate-[-45deg]" />
-                  </div>
+              <div
+                className={dotClass}
+                title={tooltip}
+              >
+                {isDone ? (
+                  <Check size={14} strokeWidth={3} />
+                ) : isRej ? (
+                  <X size={14} strokeWidth={3} />
+                ) : isCorrection ? (
+                  <RotateCcw size={12} strokeWidth={2.5} />
+                ) : isParallel ? (
+                  <Users size={12} strokeWidth={2} />
+                ) : isCurrent ? (
+                  <span className="text-[10px] font-bold">{i + 1}</span>
+                ) : (
+                  <span className="text-[10px] font-normal">{i + 1}</span>
                 )}
-                <div
-                  className={dotClass}
-                  title={tooltip}
-                >
-                  {isDone ? (
-                    <Check size={14} strokeWidth={3} />
-                  ) : isRej ? (
-                    <X size={14} strokeWidth={3} />
-                  ) : isCorrection ? (
-                    <RotateCcw size={12} strokeWidth={2.5} />
-                  ) : isParallel ? (
-                    <Users size={12} strokeWidth={2} />
-                  ) : isCurrent ? (
-                    <span className="text-[10px] font-bold">{i + 1}</span>
-                  ) : (
-                    <span className="text-[10px] font-normal">{i + 1}</span>
-                  )}
-                </div>
               </div>
               {i < steps.length - 1 && (
                 <div
@@ -99,14 +91,7 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
         />
 
         {/* End node: Terminé */}
-        <div className="relative">
-          {isFinished && (
-            <div className={`absolute -top-7 left-1/2 -translate-x-1/2 animate-bounce ${
-              isRejected ? 'text-red-500' : 'text-emerald-500'
-            }`}>
-              <Send size={16} strokeWidth={2.5} className="rotate-[-45deg]" />
-            </div>
-          )}
+        <div>
           <div
             className={`journey-dot ${
               isCompleted
@@ -124,9 +109,36 @@ export default function JourneyTracker({ workflow, compact = false }: JourneyTra
         </div>
       </div>
 
+      {/* Plane indicator row */}
+      <div className={`flex px-1 ${compact ? 'mt-1' : 'mt-2'}`}>
+        {steps.map((step, i) => {
+          const isCurrent = !isFinished && i === workflow.currentStepIndex;
+          return (
+            <React.Fragment key={step.id}>
+              <div className="flex items-center justify-center" style={{ width: 36 }}>
+                {isCurrent && (
+                  <Send size={16} strokeWidth={2.5} className="text-sky-500 rotate-[90deg] animate-bounce" />
+                )}
+              </div>
+              {i < steps.length - 1 && <div className="flex-1" />}
+            </React.Fragment>
+          );
+        })}
+        {/* Spacer for line to end */}
+        <div className="flex-1" />
+        {/* End node plane */}
+        <div className="flex items-center justify-center" style={{ width: 36 }}>
+          {isFinished && (
+            <Send size={16} strokeWidth={2.5} className={`rotate-[90deg] animate-bounce ${
+              isRejected ? 'text-red-500' : 'text-emerald-500'
+            }`} />
+          )}
+        </div>
+      </div>
+
       {/* Labels (desktop only if not compact) */}
       {!compact && (
-        <div className="hidden sm:flex mt-3 px-0">
+        <div className="hidden sm:flex mt-1 px-0">
           {steps.map((step) => {
             const isParallel = step.isParallel && step.parallelParticipants;
             const firstName = step.participant.name.split(' ')[0];
