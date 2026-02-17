@@ -64,9 +64,9 @@ export default function DocumentDetail() {
   const { retention, refresh: refreshRetention } = useDocumentRetention(id);
   const { templates } = useWorkflowTemplates();
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showSpinner = true) => {
     if (!id) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     const document = await db.documents.get(id);
     setDoc(document || null);
     if (document?.workflowId) {
@@ -80,14 +80,14 @@ export default function DocumentDetail() {
         setBlockageInfo(null);
       }
     }
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
     if (firebaseSync?.processedCount && firebaseSync.processedCount > lastProcessedCountRef.current) {
-      loadData();
+      loadData(false); // Silent refresh — no loading spinner flash
     }
     lastProcessedCountRef.current = firebaseSync?.processedCount ?? 0;
   }, [firebaseSync?.processedCount, loadData]);

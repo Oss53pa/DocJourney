@@ -348,17 +348,20 @@ export async function sendEmailViaEmailJS(
   });
 
   try {
-    await emailjs.send(
+    const startTime = Date.now();
+    const response = await emailjs.send(
       settings.emailjsServiceId!,
       settings.emailjsTemplateId!,
       templateParams,
       settings.emailjsPublicKey!
     );
+    const duration = Date.now() - startTime;
+    console.log('EmailJS Response:', { status: response.status, text: response.text, duration: `${duration}ms` });
   } catch (error: unknown) {
     // EmailJS returns error with text property containing details
-    const emailJsError = error as { text?: string; message?: string };
+    const emailJsError = error as { text?: string; message?: string; status?: number };
     const errorMessage = emailJsError.text || emailJsError.message || 'Erreur inconnue';
-    console.error('EmailJS Error:', error);
+    console.error('EmailJS Error:', { status: emailJsError.status, text: errorMessage, error });
     throw new Error(`Erreur EmailJS: ${errorMessage}`);
   }
 }

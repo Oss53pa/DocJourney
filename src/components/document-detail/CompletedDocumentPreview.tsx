@@ -1,7 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileText, Maximize2, Image, File } from 'lucide-react';
 import type { DocJourneyDocument, DocumentRetention } from '../../types';
 import Modal from '../common/Modal';
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
 
 interface CompletedDocumentPreviewProps {
   doc: DocJourneyDocument;
@@ -10,15 +19,29 @@ interface CompletedDocumentPreviewProps {
 
 export default function CompletedDocumentPreview({ doc, retention }: CompletedDocumentPreviewProps) {
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const blobUrlRef = useRef<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   const isContentDeleted = retention?.deletedAt != null;
   const isPdf = doc.type === 'pdf';
   const isImage = doc.type === 'image';
   const hasContent = doc.content && doc.content.length > 0;
 
-  const dataUri = hasContent
-    ? `data:${doc.mimeType};base64,${doc.content}`
-    : '';
+  // Create a blob URL for the document content (avoids data URI size limits)
+  useEffect(() => {
+    if (hasContent && !isContentDeleted) {
+      const blob = base64ToBlob(doc.content!, doc.mimeType);
+      const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
+      setBlobUrl(url);
+    }
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [doc.content, doc.mimeType, hasContent, isContentDeleted]);
 
   return (
     <>
@@ -37,28 +60,23 @@ export default function CompletedDocumentPreview({ doc, retention }: CompletedDo
             <FileText size={40} className="text-neutral-300 mb-3" />
             <p className="text-sm text-neutral-400">Contenu supprimé par la politique de rétention</p>
           </div>
-        ) : !hasContent ? (
+        ) : !hasContent || !blobUrl ? (
           <div className="flex flex-col items-center justify-center h-[300px] bg-neutral-50 rounded-xl border border-dashed border-neutral-200">
             <File size={40} className="text-neutral-300 mb-3" />
             <p className="text-sm text-neutral-400">Aucun contenu disponible</p>
           </div>
         ) : isPdf ? (
           <div className="rounded-xl overflow-hidden border border-neutral-200">
-            <object
-              data={dataUri}
-              type="application/pdf"
+            <iframe
+              src={blobUrl}
+              title={doc.name}
               className="w-full h-[400px]"
-            >
-              <div className="flex flex-col items-center justify-center h-[400px] bg-neutral-50">
-                <FileText size={40} className="text-neutral-300 mb-3" />
-                <p className="text-sm text-neutral-400">Aperçu PDF non disponible</p>
-              </div>
-            </object>
+            />
           </div>
         ) : isImage ? (
           <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 flex items-center justify-center">
             <img
-              src={dataUri}
+              src={blobUrl}
               alt={doc.name}
               className="max-h-[400px] object-contain"
             />
@@ -81,17 +99,15 @@ export default function CompletedDocumentPreview({ doc, retention }: CompletedDo
 
       {/* Fullscreen Modal */}
       <Modal isOpen={showFullscreen} onClose={() => setShowFullscreen(false)} title={doc.name} size="xl">
-        {isPdf ? (
-          <object
-            data={dataUri}
-            type="application/pdf"
+        {isPdf && blobUrl ? (
+          <iframe
+            src={blobUrl}
+            title={doc.name}
             className="w-full h-[70vh]"
-          >
-            <p className="text-sm text-neutral-400 text-center py-10">Aperçu PDF non disponible</p>
-          </object>
-        ) : isImage ? (
+          />
+        ) : isImage && blobUrl ? (
           <div className="flex items-center justify-center">
-            <img src={dataUri} alt={doc.name} className="max-w-full max-h-[70vh] object-contain" />
+            <img src={blobUrl} alt={doc.name} className="max-w-full max-h-[70vh] object-contain" />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16">

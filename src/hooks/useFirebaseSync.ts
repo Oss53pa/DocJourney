@@ -26,6 +26,7 @@ export interface PendingReturn {
   data: ReturnFileData;
   receivedAt: Date;
   processing: boolean;
+  retryCount: number;
 }
 
 export interface FirebaseSyncState {
@@ -78,6 +79,7 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
         data: returnData,
         receivedAt: new Date(),
         processing: false,
+        retryCount: 0,
       }];
     });
   }, []);
@@ -108,17 +110,26 @@ export function useFirebaseSync(): UseFirebaseSyncResult {
         setPendingReturns(prev => prev.filter(r => r.id !== returnId));
         setProcessedCount(prev => prev + 1);
       } else {
-        // Unmark processing on error
-        setPendingReturns(prev =>
-          prev.map(r => r.id === returnId ? { ...r, processing: false } : r)
-        );
+        // Processing failed (step already processed, workflow not found, etc.)
+        // Discard to avoid infinite retry loop
+        console.warn('Return processing failed:', result.message, '— discarding return', returnId);
+        setPendingReturns(prev => prev.filter(r => r.id !== returnId));
+        // Still increment processedCount to trigger UI refresh
+        setProcessedCount(prev => prev + 1);
       }
 
       return result;
     } catch (error) {
-      setPendingReturns(prev =>
-        prev.map(r => r.id === returnId ? { ...r, processing: false } : r)
-      );
+      const currentRetry = pendingReturn.retryCount + 1;
+      if (currentRetry >= 3) {
+        // Max retries reached — discard to avoid infinite loop
+        console.warn('Max retries reached for return', returnId, '— discarding');
+        setPendingReturns(prev => prev.filter(r => r.id !== returnId));
+      } else {
+        setPendingReturns(prev =>
+          prev.map(r => r.id === returnId ? { ...r, processing: false, retryCount: currentRetry } : r)
+        );
+      }
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Erreur de traitement',

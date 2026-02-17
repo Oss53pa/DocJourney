@@ -7,13 +7,15 @@ import type { Workflow, DocJourneyDocument, ValidationReport } from '../types';
 import { GrandHotelFont } from './grandHotelFont';
 
 // Register Grand Hotel font
-let fontRegistered = false;
+// addFileToVFS is global (shared across jsPDF instances), only needs to run once.
+// addFont is per-instance and must be called on every new jsPDF instance.
+let vfsRegistered = false;
 function registerGrandHotel(pdf: jsPDF) {
-  if (!fontRegistered) {
+  if (!vfsRegistered) {
     pdf.addFileToVFS('GrandHotel-Regular.ttf', GrandHotelFont);
-    pdf.addFont('GrandHotel-Regular.ttf', 'GrandHotel', 'normal');
-    fontRegistered = true;
+    vfsRegistered = true;
   }
+  pdf.addFont('GrandHotel-Regular.ttf', 'GrandHotel', 'normal');
 }
 
 // ---- Helpers ----
