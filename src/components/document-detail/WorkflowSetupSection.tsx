@@ -1,26 +1,11 @@
 import React, { useState } from 'react';
 import { Send, Plus, Trash2, ArrowRight, Save, Check, Layers } from 'lucide-react';
-import type { DocJourneyDocument, ParticipantRole, WorkflowTemplate } from '../../types';
+import type { DocJourneyDocument, WorkflowTemplate } from '../../types';
 import { getParticipantColor } from '../../utils';
 import type { StepConfig } from '../../services/workflowService';
 import { createWorkflow } from '../../services/workflowService';
-import { incrementUsage, saveCurrentAsTemplate } from '../../services/workflowTemplateService';
-
-const ROLES: { value: ParticipantRole; label: string; desc: string }[] = [
-  { value: 'reviewer', label: 'Annotateur', desc: 'Annote et commente' },
-  { value: 'validator', label: 'Validateur', desc: 'Valide ou rejette' },
-  { value: 'approver', label: 'Approbateur', desc: 'Approbation finale' },
-  { value: 'signer', label: 'Signataire', desc: 'Appose sa signature' },
-];
-
-interface StepFormData {
-  id: string;
-  name: string;
-  email: string;
-  organization: string;
-  role: ParticipantRole;
-  instructions: string;
-}
+import { ROLES, MAX_WORKFLOW_STEPS } from '../../constants/workflow';
+import { type StepFormData, emptyStep, applyTemplate as applyTemplateHelper, saveStepsAsTemplate } from '../../utils/workflowHelpers';
 
 interface WorkflowSetupSectionProps {
   doc: DocJourneyDocument;
@@ -38,9 +23,7 @@ export default function WorkflowSetupSection({
   onMessage,
 }: WorkflowSetupSectionProps) {
   const [workflowName, setWorkflowName] = useState(`Validation de ${doc.name}`);
-  const [wfSteps, setWfSteps] = useState<StepFormData[]>([{
-    id: crypto.randomUUID(), name: '', email: '', organization: '', role: 'reviewer', instructions: '',
-  }]);
+  const [wfSteps, setWfSteps] = useState<StepFormData[]>([emptyStep()]);
   const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -49,9 +32,7 @@ export default function WorkflowSetupSection({
   const [templateSaved, setTemplateSaved] = useState(false);
 
   const addStep = () => {
-    if (wfSteps.length < 10) setWfSteps([...wfSteps, {
-      id: crypto.randomUUID(), name: '', email: '', organization: '', role: 'reviewer', instructions: '',
-    }]);
+    if (wfSteps.length < MAX_WORKFLOW_STEPS) setWfSteps([...wfSteps, emptyStep()]);
   };
 
   const removeStep = (index: number) => {
@@ -64,29 +45,14 @@ export default function WorkflowSetupSection({
     setWfSteps(updated);
   };
 
-  const applyTemplate = async (templateId: string) => {
+  const handleApplyTemplate = async (templateId: string) => {
     setSelectedTemplateId(templateId);
-    if (!templateId) return;
-    const template = templates.find(t => t.id === templateId);
-    if (!template) return;
-    setWfSteps(template.steps.map(s => ({
-      id: crypto.randomUUID(),
-      name: s.participantName || '',
-      email: s.participantEmail || '',
-      organization: s.participantOrganization || '',
-      role: s.role,
-      instructions: s.instructions || '',
-    })));
-    await incrementUsage(templateId);
+    const result = await applyTemplateHelper(templateId, templates);
+    if (result) setWfSteps(result);
   };
 
   const handleSaveAsTemplate = async () => {
-    if (!templateSaveName.trim()) return;
-    await saveCurrentAsTemplate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { steps: wfSteps.map((s, i) => ({ id: s.id, order: i + 1, participant: { name: s.name, email: s.email, organization: s.organization || undefined }, role: s.role as ParticipantRole, status: 'pending' as const, instructions: s.instructions || undefined })) } as any,
-      templateSaveName,
-    );
+    await saveStepsAsTemplate(wfSteps, templateSaveName);
     setTemplateSaved(true);
     setShowSaveTemplate(false);
     setTemplateSaveName('');
@@ -145,7 +111,7 @@ export default function WorkflowSetupSection({
             </div>
             <select
               value={selectedTemplateId}
-              onChange={e => applyTemplate(e.target.value)}
+              onChange={e => handleApplyTemplate(e.target.value)}
               className="input"
             >
               <option value="">Aucun modèle</option>
@@ -186,7 +152,7 @@ export default function WorkflowSetupSection({
       {/* Steps */}
       <div className="flex items-center justify-between">
         <h3 className="section-title">Étapes du circuit ({wfSteps.length}/10)</h3>
-        <button onClick={addStep} disabled={wfSteps.length >= 10} className="btn-secondary btn-sm">
+        <button onClick={addStep} disabled={wfSteps.length >= MAX_WORKFLOW_STEPS} className="btn-secondary btn-sm">
           <Plus size={14} /> Ajouter
         </button>
       </div>

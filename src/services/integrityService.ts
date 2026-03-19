@@ -4,28 +4,11 @@
 
 import type { IntegrityChain } from '../types/verification.types';
 import type { StepResponse, WorkflowStep, SignatureData } from '../types';
+import { sha256, generateRandomHex } from '../utils/crypto';
 
-// ---- Crypto Utilities ----
-
-export async function sha256(data: string | ArrayBuffer): Promise<string> {
-  let buffer: ArrayBuffer;
-
-  if (typeof data === 'string') {
-    buffer = new TextEncoder().encode(data);
-  } else {
-    buffer = data;
-  }
-
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-export function generateNonce(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Re-export for backward compatibility
+export { sha256 };
+export const generateNonce = generateRandomHex;
 
 // ---- Document Hash ----
 

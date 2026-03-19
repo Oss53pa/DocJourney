@@ -1,17 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
-import Dashboard from './pages/Dashboard';
-import NewDocument from './pages/NewDocument';
-import DocumentDetail from './pages/DocumentDetail';
-import Documents from './pages/Documents';
-import Activity from './pages/Activity';
-import Archives from './pages/Archives';
-import Settings from './pages/Settings';
-import GroupDetail from './pages/GroupDetail';
-import Contacts from './pages/Contacts';
-import Home from './pages/Home';
+import ErrorBoundary from './components/ErrorBoundary';
+import PageLoader from './components/common/PageLoader';
 import { initializeDB } from './db';
+
+// Lazy-loaded pages
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const NewDocument = React.lazy(() => import('./pages/NewDocument'));
+const DocumentDetail = React.lazy(() => import('./pages/DocumentDetail'));
+const Documents = React.lazy(() => import('./pages/Documents'));
+const Activity = React.lazy(() => import('./pages/Activity'));
+const Archives = React.lazy(() => import('./pages/Archives'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const GroupDetail = React.lazy(() => import('./pages/GroupDetail'));
+const Contacts = React.lazy(() => import('./pages/Contacts'));
+const Home = React.lazy(() => import('./pages/Home'));
 
 function AppLoader({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -39,21 +43,23 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppLoader>
-        <Routes>
-          <Route path="/home" element={<Home />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/new" element={<NewDocument />} />
-            <Route path="/document/:id" element={<DocumentDetail />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/activity" element={<Activity />} />
-            <Route path="/archives" element={<Archives />} />
-            <Route path="/groups" element={<Navigate to="/documents" replace />} />
-            <Route path="/groups/:id" element={<GroupDetail />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/settings" element={<Settings />} />
-          </Route>
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/home" element={<Home />} />
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="/new" element={<ErrorBoundary><NewDocument /></ErrorBoundary>} />
+              <Route path="/document/:id" element={<ErrorBoundary><DocumentDetail /></ErrorBoundary>} />
+              <Route path="/documents" element={<ErrorBoundary><Documents /></ErrorBoundary>} />
+              <Route path="/activity" element={<ErrorBoundary><Activity /></ErrorBoundary>} />
+              <Route path="/archives" element={<ErrorBoundary><Archives /></ErrorBoundary>} />
+              <Route path="/groups" element={<Navigate to="/documents" replace />} />
+              <Route path="/groups/:id" element={<ErrorBoundary><GroupDetail /></ErrorBoundary>} />
+              <Route path="/contacts" element={<ErrorBoundary><Contacts /></ErrorBoundary>} />
+              <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+            </Route>
+          </Routes>
+        </Suspense>
       </AppLoader>
     </BrowserRouter>
   );

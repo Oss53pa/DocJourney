@@ -7,33 +7,12 @@ import { useSettings } from '../hooks/useSettings';
 import { useDocumentGroups } from '../hooks/useDocumentGroups';
 import { addDocumentsToGroup } from '../services/documentGroupService';
 import { useWorkflowTemplates } from '../hooks/useWorkflowTemplates';
-import { incrementUsage } from '../services/workflowTemplateService';
-import { saveCurrentAsTemplate } from '../services/workflowTemplateService';
 import { formatFileSize, getParticipantColor } from '../utils';
 import { getParticipant } from '../services/participantService';
-import type { ParticipantRole, DocJourneyDocument, Participant } from '../types';
+import type { DocJourneyDocument, Participant } from '../types';
 import ParticipantPicker from '../components/participants/ParticipantPicker';
-
-const ROLES: { value: ParticipantRole; label: string; desc: string }[] = [
-  { value: 'reviewer', label: 'Annotateur', desc: 'Annote et commente' },
-  { value: 'validator', label: 'Validateur', desc: 'Valide ou rejette' },
-  { value: 'approver', label: 'Approbateur', desc: 'Approbation finale' },
-  { value: 'signer', label: 'Signataire', desc: 'Appose sa signature' },
-];
-
-interface StepFormData {
-  id: string;
-  name: string;
-  email: string;
-  organization: string;
-  role: ParticipantRole;
-  instructions: string;
-}
-
-const emptyStep = (): StepFormData => ({
-  id: crypto.randomUUID(),
-  name: '', email: '', organization: '', role: 'reviewer', instructions: '',
-});
+import { ROLES, MAX_WORKFLOW_STEPS } from '../constants/workflow';
+import { type StepFormData, emptyStep, applyTemplate as applyTemplateHelper, saveStepsAsTemplate } from '../utils/workflowHelpers';
 
 export default function NewDocument() {
   const navigate = useNavigate();
@@ -99,7 +78,7 @@ export default function NewDocument() {
     }
   };
 
-  const addStep = () => { if (steps.length < 10) setSteps([...steps, emptyStep()]); };
+  const addStep = () => { if (steps.length < MAX_WORKFLOW_STEPS) setSteps([...steps, emptyStep()]); };
   const removeStep = (index: number) => { if (steps.length > 1) setSteps(steps.filter((_, i) => i !== index)); };
   const [absenceWarnings, setAbsenceWarnings] = useState<Record<number, boolean>>({});
 
@@ -120,30 +99,14 @@ export default function NewDocument() {
     }
   };
 
-  const applyTemplate = async (templateId: string) => {
+  const handleApplyTemplate = async (templateId: string) => {
     setSelectedTemplateId(templateId);
-    if (!templateId) return;
-    const template = templates.find(t => t.id === templateId);
-    if (!template) return;
-    const newSteps: StepFormData[] = template.steps.map(s => ({
-      id: crypto.randomUUID(),
-      name: s.participantName || '',
-      email: s.participantEmail || '',
-      organization: s.participantOrganization || '',
-      role: s.role,
-      instructions: s.instructions || '',
-    }));
-    setSteps(newSteps);
-    await incrementUsage(templateId);
+    const result = await applyTemplateHelper(templateId, templates);
+    if (result) setSteps(result);
   };
 
   const handleSaveAsTemplate = async () => {
-    if (!templateSaveName.trim()) return;
-    await saveCurrentAsTemplate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { steps: steps.map((s, i) => ({ id: s.id, order: i + 1, participant: { name: s.name, email: s.email, organization: s.organization || undefined }, role: s.role as ParticipantRole, status: 'pending' as const, instructions: s.instructions || undefined })) } as any,
-      templateSaveName,
-    );
+    await saveStepsAsTemplate(steps, templateSaveName);
     setTemplateSaved(true);
     setShowSaveTemplate(false);
     setTemplateSaveName('');
@@ -394,7 +357,7 @@ export default function NewDocument() {
               </div>
               <select
                 value={selectedTemplateId}
-                onChange={e => applyTemplate(e.target.value)}
+                onChange={e => handleApplyTemplate(e.target.value)}
                 className="input"
               >
                 <option value="">Aucun modèle</option>
@@ -428,7 +391,7 @@ export default function NewDocument() {
           {/* Steps */}
           <div className="flex items-center justify-between">
             <h3 className="section-title">Étapes du circuit ({steps.length}/10)</h3>
-            <button onClick={addStep} disabled={steps.length >= 10} className="btn-secondary btn-sm">
+            <button onClick={addStep} disabled={steps.length >= MAX_WORKFLOW_STEPS} className="btn-secondary btn-sm">
               <Plus size={14} /> Ajouter
             </button>
           </div>
