@@ -9,7 +9,7 @@ interface TemplateCard {
   description: string;
   icon: React.ReactNode;
   type: 'html' | 'pdf';
-  generate: () => string;
+  generate: () => string | Promise<string>;
 }
 
 const templates: TemplateCard[] = [
@@ -40,9 +40,9 @@ const templates: TemplateCard[] = [
   {
     id: 'report',
     title: 'Compte rendu de validation',
-    description: 'Rapport PDF (CRV) imprimable résumant l\'ensemble du circuit de validation.',
+    description: 'Rapport HTML (CRV) imprimable résumant l\'ensemble du circuit de validation.',
     icon: <FileText size={16} className="text-white" />,
-    type: 'pdf',
+    type: 'html',
     generate: generateReportPreview,
   },
   {
@@ -59,17 +59,16 @@ export default function TemplatesSection() {
   const [preview, setPreview] = useState<{ title: string; content: string; type: 'html' | 'pdf' } | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handlePreview = (template: TemplateCard) => {
+  const handlePreview = async (template: TemplateCard) => {
     setLoadingId(template.id);
-    // Use setTimeout to let the spinner render before heavy generation work
-    setTimeout(() => {
-      try {
-        const content = template.generate();
-        setPreview({ title: template.title, content, type: template.type });
-      } finally {
-        setLoadingId(null);
-      }
-    }, 50);
+    try {
+      const content = await template.generate();
+      setPreview({ title: template.title, content, type: template.type });
+    } catch {
+      // ignore
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   return (

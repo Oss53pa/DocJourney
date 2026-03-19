@@ -296,7 +296,7 @@ export interface ValidationReport {
   documentId: string;
   reference: string;
   generatedAt: Date;
-  content: string; // PDF Base64
+  content: string; // HTML Base64
 }
 
 // ---- Activity Log ----

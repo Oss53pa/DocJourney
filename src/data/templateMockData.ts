@@ -10,7 +10,7 @@ import type {
 import { generateId, getParticipantColor } from '../utils';
 import { generateEmailTemplate } from '../services/emailService';
 import { generateHTML } from '../services/packageHtml';
-import { renderReportPDF } from '../services/reportService';
+import { renderReportHTML } from '../services/reportService';
 
 // ---- Mock Participants ----
 
@@ -386,13 +386,13 @@ export function generateSignaturePackagePreview(): string {
   return generateHTML(packageData);
 }
 
-export function generateReportPreview(): string {
+export async function generateReportPreview(): Promise<string> {
   const workflow = buildCompletedWorkflow();
   const doc: DocJourneyDocument = {
     ...mockDocument,
     status: 'completed',
   };
-  return renderReportPDF(workflow, doc);
+  return renderReportHTML(workflow, doc);
 }
 
 export function generateReceiptPreview(): string {

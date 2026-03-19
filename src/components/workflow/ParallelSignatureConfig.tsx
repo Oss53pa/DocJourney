@@ -9,22 +9,33 @@ interface ParallelSignatureConfigProps {
   onModeChange: (mode: 'all' | 'any') => void;
   onRemove: () => void;
   existingParticipants?: Array<{ name: string; email: string }>;
+  onNotifyNonSigners?: (notify: boolean) => void;
+  notifyNonSigners?: boolean;
 }
 
-export default function ParallelSignatureConfig({
-  participants,
-  mode,
-  onParticipantsChange,
-  onModeChange,
-  onRemove,
-  existingParticipants = [],
-}: ParallelSignatureConfigProps) {
+export default function ParallelSignatureConfig(props: ParallelSignatureConfigProps) {
+  const {
+    participants,
+    mode,
+    onParticipantsChange,
+    onModeChange,
+    onRemove,
+    existingParticipants = [],
+  } = props;
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [notifyNonSigners, setNotifyNonSigners] = useState(props.notifyNonSigners ?? true);
+
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+
+  const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null);
 
   const handleAddParticipant = () => {
     if (!newName.trim() || !newEmail.trim()) return;
+    if (!isValidEmail(newEmail.trim())) return;
 
     const newParticipant: Participant = {
       name: newName.trim(),
@@ -49,6 +60,8 @@ export default function ParallelSignatureConfig({
 
   const handleSelectExisting = (participant: { name: string; email: string }) => {
     if (participants.some(p => p.email === participant.email)) {
+      setDuplicateEmail(participant.email);
+      setTimeout(() => setDuplicateEmail(null), 2000);
       return;
     }
     onParticipantsChange([...participants, participant]);
@@ -86,7 +99,10 @@ export default function ParallelSignatureConfig({
           Tous doivent signer
         </button>
         <button
-          onClick={() => onModeChange('any')}
+          onClick={() => {
+            onModeChange('any');
+            props.onNotifyNonSigners?.(true);
+          }}
           className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
             mode === 'any'
               ? 'bg-purple-600 text-white'
@@ -102,6 +118,24 @@ export default function ParallelSignatureConfig({
           ? 'Le workflow avancera quand tous les participants auront signé.'
           : 'Le workflow avancera dès qu\'un participant aura signé.'}
       </p>
+
+      {mode === 'any' && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <input
+            type="checkbox"
+            id="notify-non-signers"
+            checked={notifyNonSigners}
+            disabled
+            onChange={() => {}}
+            className="mt-0.5 accent-amber-600"
+          />
+          <label htmlFor="notify-non-signers" className="text-[11px] text-amber-800 leading-relaxed">
+            Les participants non-signataires seront automatiquement notifiés par email
+            dès qu'un premier signataire aura complété l'action.
+            <span className="block mt-0.5 font-medium">Cette notification est obligatoire en mode "Un seul suffit".</span>
+          </label>
+        </div>
+      )}
 
       {/* Participants list */}
       <div className="space-y-2">
@@ -155,6 +189,9 @@ export default function ParallelSignatureConfig({
               className="input text-sm"
             />
           </div>
+          {newEmail && !isValidEmail(newEmail) && (
+            <p className="text-[10px] text-red-500 -mt-1">Adresse email invalide</p>
+          )}
 
           {/* Existing participants suggestions */}
           {existingParticipants.length > 0 && (
@@ -168,7 +205,11 @@ export default function ParallelSignatureConfig({
                     <button
                       key={i}
                       onClick={() => handleSelectExisting(p)}
-                      className="text-xs bg-neutral-100 hover:bg-neutral-200 text-neutral-700 px-2 py-1 rounded-lg"
+                      className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                        duplicateEmail === p.email
+                          ? 'bg-red-100 text-red-600 cursor-not-allowed'
+                          : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
+                      }`}
                     >
                       {p.name}
                     </button>
@@ -190,7 +231,7 @@ export default function ParallelSignatureConfig({
             </button>
             <button
               onClick={handleAddParticipant}
-              disabled={!newName.trim() || !newEmail.trim()}
+              disabled={!newName.trim() || !isValidEmail(newEmail.trim())}
               className="btn-primary btn-sm"
             >
               <UserPlus size={14} />
