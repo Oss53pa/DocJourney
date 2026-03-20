@@ -16,6 +16,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const GroupDetail = React.lazy(() => import('./pages/GroupDetail'));
 const Contacts = React.lazy(() => import('./pages/Contacts'));
 const Home = React.lazy(() => import('./pages/Home'));
+const Verify = React.lazy(() => import('./pages/Verify'));
 
 function AppLoader({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -46,6 +47,7 @@ export default function App() {
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/home" element={<Home />} />
+            <Route path="/verify" element={<Verify />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
               <Route path="/new" element={<ErrorBoundary><NewDocument /></ErrorBoundary>} />
@@ -57,6 +59,7 @@ export default function App() {
               <Route path="/groups/:id" element={<ErrorBoundary><GroupDetail /></ErrorBoundary>} />
               <Route path="/contacts" element={<ErrorBoundary><Contacts /></ErrorBoundary>} />
               <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         </Suspense>

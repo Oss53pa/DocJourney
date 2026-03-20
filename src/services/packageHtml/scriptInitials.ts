@@ -1,15 +1,19 @@
 export function generateInitialsScript(): string {
   return `
 // ===== INITIALS (PARAPHE) =====
-function setupInitials() {
+function resizeInitialsCanvas() {
   var canvas = document.getElementById('initialsCanvas');
   if (!canvas) return;
 
-  // High DPI support
   var dpr = window.devicePixelRatio || 1;
   var rect = canvas.parentElement.getBoundingClientRect();
-  var width = Math.max(150, rect.width - 12);
+  var width = Math.floor(rect.width - 12);
+  // Skip if container is hidden
+  if (width < 10) return;
   var height = 100;
+
+  var currentW = Math.round(parseFloat(canvas.style.width) || 0);
+  if (currentW === width) return;
 
   canvas.width = width * dpr;
   canvas.height = height * dpr;
@@ -22,6 +26,13 @@ function setupInitials() {
   state.initialsCtx.lineWidth = 2;
   state.initialsCtx.lineCap = 'round';
   state.initialsCtx.lineJoin = 'round';
+}
+
+function setupInitials() {
+  var canvas = document.getElementById('initialsCanvas');
+  if (!canvas) return;
+
+  resizeInitialsCanvas();
 
   canvas.addEventListener('mousedown', function(e) {
     e.preventDefault();

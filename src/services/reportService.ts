@@ -180,7 +180,7 @@ export async function renderReportHTML(
   const crvRef = generateCRVReference(docRef);
   const now = new Date();
   const dateStr = fmtDateShort(now);
-  const company = workflow.owner.organization || '';
+  const company = workflow.validationCompany || workflow.owner.organization || '';
 
   // Compute fingerprint
   const fpFull = await computeHash(`${crvRef}|${doc.id}|${workflow.id}|${doc.name}`);
@@ -189,7 +189,6 @@ export async function renderReportHTML(
   // Status computation
   const steps = workflow.steps;
   const totalSteps = steps.length;
-  const completedCount = steps.filter(s => s.status === 'completed').length;
   const rejectedStep = steps.find(s => s.status === 'rejected');
   const isRejected = !!rejectedStep;
   const isCompleted = !!workflow.completedAt && !isRejected;
@@ -223,30 +222,21 @@ export async function renderReportHTML(
         : format(now, 'yyyyMMdd');
       code = `${initials}${i + 1}-${completedDate}-${shortHash}`;
 
-      const qrText = [
-        'DOCJOURNEY',
-        `REF:${crvRef}`,
-        `STEP:${i + 1}`,
-        `NAME:${step.participant.name}`,
-        `ROLE:${getRoleLabel(step.role)}`,
-        `CODE:${code}`,
-        `HASH:${stepHash.substring(0, 12)}`,
-        step.completedAt ? `TIME:${format(new Date(step.completedAt), "dd/MM/yyyy-HH'h'mm")}` : '',
-      ].filter(Boolean).join('|');
+      const verifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(stepHash.substring(0, 12))}&s=${i + 1}`;
 
-      qrDataUrl = await QRCode.toDataURL(qrText, { width: 84, margin: 0, errorCorrectionLevel: 'M' });
+      qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 84, margin: 0, errorCorrectionLevel: 'M' });
     }
 
     return { step, index: i, displayStatus, code, qrDataUrl };
   }));
 
-  // Footer QR
-  const footerQrText = `DOCJOURNEY|REF:${crvRef}|FP:${fpShort}|DATE:${dateStr}|CO:${company}`;
-  const footerQrDataUrl = await QRCode.toDataURL(footerQrText, { width: 112, margin: 0, errorCorrectionLevel: 'M' });
+  // Footer QR — URL de vérification globale du document
+  const footerVerifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(fpShort)}`;
+  const footerQrDataUrl = await QRCode.toDataURL(footerVerifyUrl, { width: 112, margin: 0, errorCorrectionLevel: 'M' });
 
-  // Description
+  // Description (no esc() here — the template applies esc() when inserting)
   const description = doc.metadata.description
-    || `Validation du document « ${esc(doc.name)} » via le circuit « ${esc(workflow.name)} ».`;
+    || `Validation du document « ${doc.name} » via le circuit « ${workflow.name} ».`;
 
   // ---- Build HTML ----
 

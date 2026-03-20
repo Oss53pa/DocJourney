@@ -603,6 +603,11 @@ function decisionTabHTML(data: PackageData): string {
         </div>
         <div class="signature-actions">
           <button class="btn btn-secondary btn-sm" onclick="clearSignature()">Effacer</button>
+          <div class="sig-color-picker">
+            <button class="sig-color-btn active" data-color="#171717" onclick="setSigColor('#171717')" style="background:#171717" title="Noir"></button>
+            <button class="sig-color-btn" data-color="#1d4ed8" onclick="setSigColor('#1d4ed8')" style="background:#1d4ed8" title="Bleu"></button>
+            <button class="sig-color-btn" data-color="#dc2626" onclick="setSigColor('#dc2626')" style="background:#dc2626" title="Rouge"></button>
+          </div>
           <span id="sigStatus">Aucune signature</span>
         </div>
       </div>

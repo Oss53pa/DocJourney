@@ -30,6 +30,14 @@ function switchTab(tab, isMobile) {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
   });
 
+  // Resize signature/initials canvas when decision tab becomes visible
+  if (tab === 'decision') {
+    setTimeout(function() {
+      resizeSignatureCanvas();
+      resizeInitialsCanvas();
+    }, 0);
+  }
+
   // Move actual DOM node to mobile drawer (preserves event listeners, canvas state, etc.)
   if (isMobile) {
     restoreMobilePane();
@@ -219,7 +227,8 @@ function setupResizeHandler() {
         restoreMobilePane();
       }
       // Re-setup signature canvas on resize
-      setupSignature();
+      resizeSignatureCanvas();
+      resizeInitialsCanvas();
     }
   });
 }

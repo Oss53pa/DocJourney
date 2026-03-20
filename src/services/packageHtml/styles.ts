@@ -282,9 +282,13 @@ textarea:focus{outline:none;border-color:#171717;box-shadow:0 0 0 2px rgba(23,23
 .sig-source.active{display:block}
 
 /* Canvas (draw) */
-.signature-canvas-wrap{border:2px dashed #d4d4d4;border-radius:8px;padding:4px;background:#fff;margin-bottom:10px;touch-action:none}
-.signature-canvas-wrap canvas{width:100%;height:180px;cursor:crosshair;display:block;-webkit-user-select:none;user-select:none;touch-action:none}
+.signature-canvas-wrap{border:2px dashed #d4d4d4;border-radius:8px;padding:0;background:#fff;margin-bottom:10px;touch-action:none;overflow:hidden}
+.signature-canvas-wrap canvas{width:100%;height:220px;cursor:crosshair;display:block;-webkit-user-select:none;user-select:none;touch-action:none}
 .signature-actions{display:flex;justify-content:space-between;align-items:center}
+.sig-color-picker{display:flex;gap:6px;align-items:center}
+.sig-color-btn{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;transition:all .15s;box-shadow:0 0 0 0 transparent}
+.sig-color-btn:hover{transform:scale(1.15)}
+.sig-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px currentColor}
 
 /* Import */
 .sig-import-zone{border:2px dashed #d4d4d4;border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;background:#fff}
