@@ -4,10 +4,6 @@ export function generateDecisionScript(): string {
 function showApprovalConfirmation() {
   var commentCount = state.myAnnotations.length;
   var generalComment = (document.getElementById('generalComment') || {}).value || '';
-  if (!generalComment.trim()) {
-    alert('Veuillez saisir une note avant de valider.');
-    return;
-  }
   var text = '<strong>D\\u00e9cision :</strong> Approbation';
   if (commentCount > 0) text += '<br>' + commentCount + ' annotation(s) ajout\\u00e9e(s)';
   if (generalComment.trim()) text += '<br><em>"' + escapeHtml(generalComment.trim().substring(0, 100)) + (generalComment.length > 100 ? '...' : '') + '"</em>';
@@ -32,20 +28,10 @@ function showApprovalConfirmation() {
 }
 
 function showModificationConfirmation() {
-  var generalComment = (document.getElementById('generalComment') || {}).value || '';
-  if (!generalComment.trim()) {
-    alert('Veuillez saisir une note avant de valider.');
-    return;
-  }
   showModal('modificationModal');
 }
 
 function showRejectionConfirmation() {
-  var generalComment = (document.getElementById('generalComment') || {}).value || '';
-  if (!generalComment.trim()) {
-    alert('Veuillez saisir une note avant de valider.');
-    return;
-  }
   showModal('rejectionModal');
 }
 

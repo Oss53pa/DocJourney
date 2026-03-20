@@ -2,11 +2,11 @@ export function generateSignatureScript(): string {
   return `
 // ===== SMOOTH DRAWING UTILITIES =====
 var SMOOTH_CONFIG = {
-  minStrokeWidth: 1.5,
-  maxStrokeWidth: 4.5,
-  smoothing: 0.4,
-  velocityFilterWeight: 0.7,
-  minDistance: 2
+  minStrokeWidth: 1.2,
+  maxStrokeWidth: 3.8,
+  smoothing: 0.3,
+  velocityFilterWeight: 0.6,
+  minDistance: 1
 };
 
 function createPoint(x, y, pressure) {
@@ -31,37 +31,38 @@ function calculateStrokeWidth(velocity, pressure) {
 function drawSmoothCurve(ctx, points) {
   if (points.length < 2) return;
 
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-
   if (points.length === 2) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    var vel = calculateVelocity(points[0], points[1]);
+    ctx.lineWidth = calculateStrokeWidth(vel, points[1].pressure);
     ctx.lineTo(points[1].x, points[1].y);
     ctx.stroke();
     return;
   }
 
-  for (var i = 1; i < points.length - 1; i++) {
-    var p0 = points[i - 1];
+  // Draw segments with cubic Bezier for smoother curves
+  for (var i = 0; i < points.length - 1; i++) {
+    var p0 = points[Math.max(0, i - 1)];
     var p1 = points[i];
     var p2 = points[i + 1];
+    var p3 = points[Math.min(points.length - 1, i + 2)];
 
-    // Calculate control point for quadratic bezier
-    var cpX = p1.x;
-    var cpY = p1.y;
-    var endX = (p1.x + p2.x) / 2;
-    var endY = (p1.y + p2.y) / 2;
+    var velocity = calculateVelocity(p1, p2);
+    ctx.lineWidth = calculateStrokeWidth(velocity, (p1.pressure + p2.pressure) / 2);
 
-    // Calculate stroke width based on velocity
-    var velocity = calculateVelocity(p0, p1);
-    ctx.lineWidth = calculateStrokeWidth(velocity, p1.pressure);
+    // Catmull-Rom to cubic Bezier control points
+    var tension = 0.35;
+    var cp1x = p1.x + (p2.x - p0.x) * tension;
+    var cp1y = p1.y + (p2.y - p0.y) * tension;
+    var cp2x = p2.x - (p3.x - p1.x) * tension;
+    var cp2y = p2.y - (p3.y - p1.y) * tension;
 
-    ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    ctx.stroke();
   }
-
-  // Draw to the last point
-  var lastPoint = points[points.length - 1];
-  ctx.lineTo(lastPoint.x, lastPoint.y);
-  ctx.stroke();
 }
 
 function smoothPoints(points, smoothing) {
@@ -172,7 +173,8 @@ function renderSigFrame() {
   var points = state.sigPoints;
 
   if (points.length >= 2) {
-    var smoothed = smoothPoints(points.slice(-6), SMOOTH_CONFIG.smoothing);
+    var tail = points.slice(-8);
+    var smoothed = smoothPoints(tail, SMOOTH_CONFIG.smoothing);
     drawSmoothCurve(ctx, smoothed);
   }
 
@@ -361,6 +363,10 @@ function setupSigDragResize() {
     };
   }
 
+  // --- Visual cursor feedback ---
+  draggable.style.cursor = 'grab';
+  if (resizeHandle) resizeHandle.style.cursor = 'nwse-resize';
+
   // --- DRAG ---
   function onMouseDown(e) {
     // Ignore if clicking the resize handle
@@ -368,6 +374,7 @@ function setupSigDragResize() {
     e.preventDefault();
     e.stopPropagation();
     state.sigDragging = true;
+    draggable.style.cursor = 'grabbing';
     var rect = draggable.getBoundingClientRect();
     state.sigDragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     draggable.style.transition = 'none';
@@ -389,23 +396,30 @@ function setupSigDragResize() {
       e.preventDefault();
       var dx = e.clientX - state.sigResizeOrigin.x;
       var dy = e.clientY - state.sigResizeOrigin.y;
-      // Keep aspect ratio: use the larger delta
-      var delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-      var newW = Math.max(60, Math.min(500, state.sigResizeOrigin.w + delta));
-      var ratio = newW / state.sigResizeOrigin.w;
-      var newH = Math.max(30, state.sigResizeOrigin.h * ratio);
+      var newW, newH;
+      // Proportional resize by default, free resize with Shift
+      if (e.shiftKey) {
+        newW = Math.max(40, Math.min(600, state.sigResizeOrigin.w + dx));
+        newH = Math.max(20, Math.min(400, state.sigResizeOrigin.h + dy));
+      } else {
+        var delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        newW = Math.max(40, Math.min(600, state.sigResizeOrigin.w + delta));
+        var ratio = newW / state.sigResizeOrigin.w;
+        newH = Math.max(20, state.sigResizeOrigin.h * ratio);
+      }
       var img = document.getElementById('sigDraggableImg');
       if (img) {
         img.style.maxWidth = newW + 'px';
         img.style.maxHeight = newH + 'px';
       }
-      state.sigScale = newW / 200; // 200 = default max-width
+      state.sigScale = newW / 200;
     }
   }
 
   function onMouseUp() {
     if (state.sigDragging) {
       state.sigDragging = false;
+      draggable.style.cursor = 'grab';
       draggable.style.transition = 'box-shadow .15s';
       clampPosition();
       savePosition();
@@ -485,10 +499,11 @@ function setupSigDragResize() {
       var t = e.touches[0];
       var dx = t.clientX - state.sigResizeOrigin.x;
       var dy = t.clientY - state.sigResizeOrigin.y;
-      var delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-      var newW = Math.max(60, Math.min(500, state.sigResizeOrigin.w + delta));
+      // Pinch-style: use diagonal distance for smooth touch resize
+      var delta = (dx + dy) / 2;
+      var newW = Math.max(40, Math.min(600, state.sigResizeOrigin.w + delta));
       var ratio = newW / state.sigResizeOrigin.w;
-      var newH = Math.max(30, state.sigResizeOrigin.h * ratio);
+      var newH = Math.max(20, state.sigResizeOrigin.h * ratio);
       var img = document.getElementById('sigDraggableImg');
       if (img) {
         img.style.maxWidth = newW + 'px';

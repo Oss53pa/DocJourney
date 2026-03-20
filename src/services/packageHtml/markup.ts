@@ -470,7 +470,7 @@ function notesTabHTML(): string {
     </div>
     <div id="myAnnotationsList"></div>
     <div class="general-comment-section">
-      <label style="display:block;font-size:12px;font-weight:500;color:#525252;margin-bottom:6px">Note <span style="color:#dc2626">*</span></label>
+      <label style="display:block;font-size:12px;font-weight:500;color:#525252;margin-bottom:6px">Note <span style="color:#a3a3a3;font-weight:400">(optionnelle)</span></label>
       <textarea id="generalComment" placeholder="Votre commentaire g\u00e9n\u00e9ral sur le document..." maxlength="500"></textarea>
       <div class="char-count"><span id="generalCharCount">0</span>/500</div>
     </div>
