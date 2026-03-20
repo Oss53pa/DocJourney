@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Send, Plus, Trash2, ArrowRight, Save, Check, Layers } from 'lucide-react';
-import type { DocJourneyDocument, WorkflowTemplate } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Send, Plus, Trash2, ArrowRight, Save, Check, Layers, Building2 } from 'lucide-react';
+import type { DocJourneyDocument, WorkflowTemplate, AuthorizedDomain } from '../../types';
 import { getParticipantColor } from '../../utils';
 import type { StepConfig } from '../../services/workflowService';
 import { createWorkflow } from '../../services/workflowService';
+import { getActiveDomains } from '../../services/domainService';
 import { ROLES, MAX_WORKFLOW_STEPS } from '../../constants/workflow';
 import { type StepFormData, emptyStep, applyTemplate as applyTemplateHelper, saveStepsAsTemplate } from '../../utils/workflowHelpers';
 
@@ -28,6 +29,14 @@ export default function WorkflowSetupSection({
   const [submitting, setSubmitting] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [validationCompany, setValidationCompany] = useState('');
+  const [companies, setCompanies] = useState<AuthorizedDomain[]>([]);
+
+  useEffect(() => {
+    getActiveDomains().then(domains => {
+      setCompanies(domains);
+    });
+  }, []);
   const [templateSaveName, setTemplateSaveName] = useState('');
   const [templateSaved, setTemplateSaved] = useState(false);
 
@@ -79,7 +88,7 @@ export default function WorkflowSetupSection({
       }));
       await createWorkflow(doc.id, workflowName || `Validation de ${doc.name}`, stepConfigs, {
         name: settings.ownerName, email: settings.ownerEmail, organization: settings.ownerOrganization,
-      }, deadline ? new Date(deadline) : undefined);
+      }, deadline ? new Date(deadline) : undefined, validationCompany || undefined);
       onMessage('Circuit de validation créé avec succès', 'success');
       onCreated();
     } catch {
@@ -146,6 +155,29 @@ export default function WorkflowSetupSection({
               min={new Date().toISOString().split('T')[0]}
             />
           </div>
+          {companies.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="label">
+                <Building2 size={13} className="inline -mt-0.5 mr-1 text-neutral-400" />
+                Entreprise mandataire
+              </label>
+              <select
+                value={validationCompany}
+                onChange={e => setValidationCompany(e.target.value)}
+                className="input"
+              >
+                <option value="">— Aucune (validation personnelle)</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.description || c.domain}>
+                    {c.description || c.domain}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-neutral-400 mt-1">
+                L'entreprise pour le compte de laquelle le document sera validé
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

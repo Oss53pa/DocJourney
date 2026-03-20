@@ -275,6 +275,7 @@ export interface Workflow {
   createdAt: Date;
   completedAt?: Date;
   owner: Participant & { organization?: string };
+  validationCompany?: string;
   deadline?: Date;
   stepDeadlines?: Record<string, Date>;
   // Cancellation

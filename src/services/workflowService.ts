@@ -32,7 +32,8 @@ export async function createWorkflow(
   name: string,
   steps: StepConfig[],
   owner: Participant & { organization?: string },
-  deadline?: Date
+  deadline?: Date,
+  validationCompany?: string
 ): Promise<Workflow> {
   const id = generateId();
 
@@ -68,6 +69,7 @@ export async function createWorkflow(
     currentStepIndex: 0,
     createdAt: new Date(),
     owner,
+    validationCompany,
     deadline,
   };
 

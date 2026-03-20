@@ -1,15 +1,16 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, X, Plus, Trash2, ArrowRight, ArrowLeft, AlertCircle, Check, Save, Layers, FileEdit } from 'lucide-react';
+import { Upload, FileText, X, Plus, Trash2, ArrowRight, ArrowLeft, AlertCircle, Check, Save, Layers, FileEdit, Building2 } from 'lucide-react';
 import { importDocument } from '../services/documentService';
 import { createWorkflow, type StepConfig } from '../services/workflowService';
 import { useSettings } from '../hooks/useSettings';
 import { useDocumentGroups } from '../hooks/useDocumentGroups';
 import { addDocumentsToGroup } from '../services/documentGroupService';
 import { useWorkflowTemplates } from '../hooks/useWorkflowTemplates';
+import { getActiveDomains } from '../services/domainService';
 import { formatFileSize, getParticipantColor } from '../utils';
 import { getParticipant } from '../services/participantService';
-import type { DocJourneyDocument, Participant } from '../types';
+import type { DocJourneyDocument, Participant, AuthorizedDomain } from '../types';
 import ParticipantPicker from '../components/participants/ParticipantPicker';
 import { ROLES, MAX_WORKFLOW_STEPS } from '../constants/workflow';
 import { type StepFormData, emptyStep, applyTemplate as applyTemplateHelper, saveStepsAsTemplate } from '../utils/workflowHelpers';
@@ -37,6 +38,14 @@ export default function NewDocument() {
   const [templateSaveName, setTemplateSaveName] = useState('');
   const [templateSaved, setTemplateSaved] = useState(false);
   const [deadline, setDeadline] = useState('');
+  const [validationCompany, setValidationCompany] = useState('');
+  const [companies, setCompanies] = useState<AuthorizedDomain[]>([]);
+
+  useEffect(() => {
+    getActiveDomains().then(domains => {
+      setCompanies(domains);
+    });
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -136,7 +145,7 @@ export default function NewDocument() {
       }));
       await createWorkflow(doc.id, workflowName, stepConfigs, {
         name: settings.ownerName, email: settings.ownerEmail, organization: settings.ownerOrganization,
-      }, deadline ? new Date(deadline) : undefined);
+      }, deadline ? new Date(deadline) : undefined, validationCompany || undefined);
       navigate(`/document/${doc.id}`);
     } catch {
       setError('Erreur lors de la création du workflow.');
@@ -386,6 +395,29 @@ export default function NewDocument() {
                 min={new Date().toISOString().split('T')[0]}
               />
             </div>
+            {companies.length > 0 && (
+              <div>
+                <label className="label">
+                  <Building2 size={13} className="inline -mt-0.5 mr-1 text-neutral-400" />
+                  Entreprise mandataire
+                </label>
+                <select
+                  value={validationCompany}
+                  onChange={e => setValidationCompany(e.target.value)}
+                  className="input"
+                >
+                  <option value="">— Aucune (validation personnelle)</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.description || c.domain}>
+                      {c.description || c.domain}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-neutral-400 mt-1">
+                  L'entreprise pour le compte de laquelle le document sera validé
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Steps */}
