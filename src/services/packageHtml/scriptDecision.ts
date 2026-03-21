@@ -212,45 +212,45 @@ function downloadReturn() {
   var a = document.createElement('a');
   a.href = url;
   a.download = DATA.document.name.replace(/\\.[^.]+$/, '') + '.docjourney';
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(function() {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 // ===== PDF RECEIPT GENERATION =====
 function downloadReceipt() {
-  if (!state.returnData) return;
+  if (!state.returnData) {
+    console.warn('downloadReceipt: no returnData');
+    return;
+  }
 
-  // Show loading state
-  var btn = document.querySelector('.dl-receipt-btn');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Chargement...';
+  // Show loading state on ALL receipt buttons
+  var btns = document.querySelectorAll('.dl-receipt-btn');
+  btns.forEach(function(b) { b.disabled = true; b.textContent = 'Chargement...'; });
+
+  function resetBtns() {
+    btns.forEach(function(b) { b.disabled = false; b.textContent = 'T\\u00e9l\\u00e9charger le re\\u00e7u (PDF)'; });
   }
 
   loadPdfLibraries(function(err) {
     if (err) {
       alert('Impossible de charger les biblioth\\u00e8ques PDF. V\\u00e9rifiez votre connexion internet.');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'T\\u00e9l\\u00e9charger le re\\u00e7u (PDF)';
-      }
+      resetBtns();
       return;
     }
 
     generateReceiptPDF().then(function(pdf) {
       var docRef = 'DJ-' + DATA.document.id.substring(0, 8).toUpperCase();
       pdf.save('Recu_' + docRef + '.pdf');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'T\\u00e9l\\u00e9charger le re\\u00e7u (PDF)';
-      }
+      resetBtns();
     }).catch(function(err) {
       console.error('PDF generation error:', err);
       alert('Erreur lors de la g\\u00e9n\\u00e9ration du re\\u00e7u PDF.');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'T\\u00e9l\\u00e9charger le re\\u00e7u (PDF)';
-      }
+      resetBtns();
     });
   });
 }
