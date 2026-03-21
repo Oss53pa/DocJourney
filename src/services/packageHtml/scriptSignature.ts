@@ -1,131 +1,177 @@
 export function generateSignatureScript(): string {
   return `
-// ===== SMOOTH DRAWING UTILITIES =====
-var SMOOTH_CONFIG = {
-  minStrokeWidth: 1.2,
-  maxStrokeWidth: 3.8,
-  smoothing: 0.3,
-  velocityFilterWeight: 0.6,
-  minDistance: 1
+// ===== PEN SIMULATION ENGINE =====
+// Variable-width filled-outline rendering for realistic ink strokes.
+// Each stroke is rendered as a filled polygon whose width varies with
+// velocity (fast = thin, slow = thick) and tapers at start/end.
+
+var PEN = {
+  minWidth: 0.8,
+  maxWidth: 4.5,
+  thinning: 0.65,       // how much velocity thins the stroke
+  smoothing: 0.4,       // point-smoothing factor (0=none, 1=max)
+  taperStart: 12,       // px of taper at stroke start
+  taperEnd: 40,         // px of taper at stroke end
+  velocitySmooth: 0.55, // exponential smoothing on velocity
+  minPointDist: 1.5     // minimum px between recorded points
 };
 
 function createPoint(x, y, pressure) {
   return { x: x, y: y, pressure: pressure || 0.5, time: Date.now() };
 }
 
-function calculateVelocity(p1, p2) {
-  var dx = p2.x - p1.x;
-  var dy = p2.y - p1.y;
-  var distance = Math.sqrt(dx * dx + dy * dy);
-  var timeDiff = Math.max(1, p2.time - p1.time);
-  return distance / timeDiff;
-}
-
-function calculateStrokeWidth(velocity, pressure) {
-  var velocityFactor = Math.max(0, 1 - velocity * 0.08);
-  var pressureFactor = pressure;
-  var factor = (velocityFactor * 0.6 + pressureFactor * 0.4);
-  return SMOOTH_CONFIG.minStrokeWidth + (SMOOTH_CONFIG.maxStrokeWidth - SMOOTH_CONFIG.minStrokeWidth) * factor;
-}
-
-function drawSmoothStroke(ctx, points) {
-  if (points.length < 2) return;
-
-  // Use a single continuous path with averaged stroke width for clean rendering
-  var avgPressure = 0;
-  var avgVelocity = 0;
-  for (var j = 1; j < points.length; j++) {
-    avgPressure += points[j].pressure;
-    avgVelocity += calculateVelocity(points[j - 1], points[j]);
+// --- Point smoothing (Laplacian, multiple passes) ---
+function smoothPoints(points, factor, passes) {
+  if (points.length < 3) return points.slice();
+  var pts = points.slice();
+  for (var pass = 0; pass < (passes || 2); pass++) {
+    var out = [pts[0]];
+    for (var i = 1; i < pts.length - 1; i++) {
+      var p = pts[i], prev = pts[i - 1], next = pts[i + 1];
+      out.push({
+        x: p.x + ((prev.x + next.x) / 2 - p.x) * factor,
+        y: p.y + ((prev.y + next.y) / 2 - p.y) * factor,
+        pressure: p.pressure,
+        time: p.time
+      });
+    }
+    out.push(pts[pts.length - 1]);
+    pts = out;
   }
-  avgPressure /= (points.length - 1);
-  avgVelocity /= (points.length - 1);
-  ctx.lineWidth = calculateStrokeWidth(avgVelocity, avgPressure);
+  return pts;
+}
 
+// --- Compute per-point width ---
+function computeWidths(points) {
+  var widths = [];
+  var prevVel = 0;
+  var totalLen = 0;
+  // Precompute total arc length for taper calculations
+  var segLens = [0];
+  for (var i = 1; i < points.length; i++) {
+    var dx = points[i].x - points[i - 1].x;
+    var dy = points[i].y - points[i - 1].y;
+    totalLen += Math.sqrt(dx * dx + dy * dy);
+    segLens.push(totalLen);
+  }
+  if (totalLen < 1) totalLen = 1;
+
+  for (var i = 0; i < points.length; i++) {
+    // Velocity
+    var vel = 0;
+    if (i > 0) {
+      var dx = points[i].x - points[i - 1].x;
+      var dy = points[i].y - points[i - 1].y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var dt = Math.max(1, points[i].time - points[i - 1].time);
+      vel = dist / dt;
+    }
+    vel = prevVel * PEN.velocitySmooth + vel * (1 - PEN.velocitySmooth);
+    prevVel = vel;
+
+    // Base width from velocity (inverse: faster = thinner)
+    var t = Math.min(1, vel * 0.12);
+    var w = PEN.maxWidth - (PEN.maxWidth - PEN.minWidth) * t * PEN.thinning;
+
+    // Pressure influence
+    w *= (0.4 + points[i].pressure * 0.6);
+
+    // Start taper
+    if (PEN.taperStart > 0 && segLens[i] < PEN.taperStart) {
+      w *= Math.max(0.05, segLens[i] / PEN.taperStart);
+    }
+    // End taper
+    var distFromEnd = totalLen - segLens[i];
+    if (PEN.taperEnd > 0 && distFromEnd < PEN.taperEnd) {
+      w *= Math.max(0.01, distFromEnd / PEN.taperEnd);
+    }
+
+    widths.push(Math.max(0.2, w));
+  }
+  return widths;
+}
+
+// --- Build outline polygon from points + widths ---
+function buildOutline(points, widths) {
+  if (points.length < 2) return [];
+  var left = [];
+  var right = [];
+
+  for (var i = 0; i < points.length; i++) {
+    var p = points[i];
+    var hw = widths[i] / 2; // half-width
+
+    // Perpendicular direction (normal to path tangent)
+    var nx, ny;
+    if (i === 0) {
+      nx = -(points[1].y - p.y);
+      ny = (points[1].x - p.x);
+    } else if (i === points.length - 1) {
+      nx = -(p.y - points[i - 1].y);
+      ny = (p.x - points[i - 1].x);
+    } else {
+      // Average tangent of neighbors for smoother normals
+      nx = -(points[i + 1].y - points[i - 1].y);
+      ny = (points[i + 1].x - points[i - 1].x);
+    }
+    var len = Math.sqrt(nx * nx + ny * ny) || 1;
+    nx /= len;
+    ny /= len;
+
+    left.push({ x: p.x + nx * hw, y: p.y + ny * hw });
+    right.push({ x: p.x - nx * hw, y: p.y - ny * hw });
+  }
+
+  // Build closed outline: left forward, then right backward
+  var outline = [];
+  for (var i = 0; i < left.length; i++) outline.push(left[i]);
+  for (var i = right.length - 1; i >= 0; i--) outline.push(right[i]);
+  return outline;
+}
+
+// --- Render outline as filled path with smooth quadratic curves ---
+function renderOutline(ctx, outline) {
+  if (outline.length < 4) return;
   ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
+  ctx.moveTo(outline[0].x, outline[0].y);
+  for (var i = 1; i < outline.length - 1; i++) {
+    var curr = outline[i];
+    var next = outline[i + 1];
+    var mx = (curr.x + next.x) / 2;
+    var my = (curr.y + next.y) / 2;
+    ctx.quadraticCurveTo(curr.x, curr.y, mx, my);
+  }
+  var last = outline[outline.length - 1];
+  ctx.lineTo(last.x, last.y);
+  ctx.closePath();
+  ctx.fill();
+}
 
-  if (points.length === 2) {
-    ctx.lineTo(points[1].x, points[1].y);
-    ctx.stroke();
+// --- High-level: render a single stroke (array of points) ---
+function renderStroke(ctx, points, color) {
+  if (points.length < 2) {
+    // Single dot
+    if (points.length === 1) {
+      ctx.beginPath();
+      ctx.arc(points[0].x, points[0].y, PEN.maxWidth * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
     return;
   }
-
-  // Catmull-Rom spline through all points (single continuous path)
-  var tension = 0.3;
-  for (var i = 0; i < points.length - 1; i++) {
-    var p0 = points[Math.max(0, i - 1)];
-    var p1 = points[i];
-    var p2 = points[i + 1];
-    var p3 = points[Math.min(points.length - 1, i + 2)];
-
-    var cp1x = p1.x + (p2.x - p0.x) * tension;
-    var cp1y = p1.y + (p2.y - p0.y) * tension;
-    var cp2x = p2.x - (p3.x - p1.x) * tension;
-    var cp2y = p2.y - (p3.y - p1.y) * tension;
-
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-  }
-  ctx.stroke();
+  var smoothed = smoothPoints(points, PEN.smoothing, 3);
+  var widths = computeWidths(smoothed);
+  var outline = buildOutline(smoothed, widths);
+  ctx.fillStyle = color;
+  renderOutline(ctx, outline);
 }
 
-function drawStrokeSegment(ctx, points, fromIndex) {
-  // Draw only new segment incrementally (for live preview)
-  if (points.length < 2 || fromIndex >= points.length - 1) return;
-  var start = Math.max(0, fromIndex - 1);
-  var segment = points.slice(start);
-  if (segment.length < 2) return;
-
-  var avgPressure = 0;
-  var avgVelocity = 0;
-  for (var j = 1; j < segment.length; j++) {
-    avgPressure += segment[j].pressure;
-    avgVelocity += calculateVelocity(segment[j - 1], segment[j]);
+// --- Render all completed strokes ---
+function renderAllStrokes(ctx, strokes, color, canvasW, canvasH) {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  for (var i = 0; i < strokes.length; i++) {
+    renderStroke(ctx, strokes[i], color);
   }
-  avgPressure /= (segment.length - 1);
-  avgVelocity /= (segment.length - 1);
-  ctx.lineWidth = calculateStrokeWidth(avgVelocity, avgPressure);
-
-  ctx.beginPath();
-  ctx.moveTo(segment[0].x, segment[0].y);
-
-  if (segment.length === 2) {
-    ctx.lineTo(segment[1].x, segment[1].y);
-  } else {
-    var tension = 0.3;
-    for (var i = 0; i < segment.length - 1; i++) {
-      var p0 = segment[Math.max(0, i - 1)];
-      var p1 = segment[i];
-      var p2 = segment[i + 1];
-      var p3 = segment[Math.min(segment.length - 1, i + 2)];
-      var cp1x = p1.x + (p2.x - p0.x) * tension;
-      var cp1y = p1.y + (p2.y - p0.y) * tension;
-      var cp2x = p2.x - (p3.x - p1.x) * tension;
-      var cp2y = p2.y - (p3.y - p1.y) * tension;
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-  }
-  ctx.stroke();
-}
-
-function smoothPoints(points, smoothing) {
-  if (points.length < 3) return points;
-
-  var smoothed = [points[0]];
-  for (var i = 1; i < points.length - 1; i++) {
-    var prev = points[i - 1];
-    var curr = points[i];
-    var next = points[i + 1];
-
-    smoothed.push({
-      x: curr.x * (1 - smoothing) + ((prev.x + next.x) / 2) * smoothing,
-      y: curr.y * (1 - smoothing) + ((prev.y + next.y) / 2) * smoothing,
-      pressure: curr.pressure,
-      time: curr.time
-    });
-  }
-  smoothed.push(points[points.length - 1]);
-  return smoothed;
 }
 
 // ===== SIGNATURE =====
@@ -136,11 +182,9 @@ function resizeSignatureCanvas() {
   var dpr = window.devicePixelRatio || 1;
   var rect = canvas.parentElement.getBoundingClientRect();
   var width = Math.floor(rect.width);
-  // Skip resize if container is hidden (width 0)
   if (width < 10) return;
   var height = 220;
 
-  // Only resize if dimensions actually changed
   var currentW = Math.round(parseFloat(canvas.style.width) || 0);
   if (currentW === width) return;
 
@@ -151,10 +195,6 @@ function resizeSignatureCanvas() {
 
   state.signatureCtx = canvas.getContext('2d');
   state.signatureCtx.scale(dpr, dpr);
-  state.signatureCtx.strokeStyle = state.sigColor || '#171717';
-  state.signatureCtx.lineWidth = 2.5;
-  state.signatureCtx.lineCap = 'round';
-  state.signatureCtx.lineJoin = 'round';
 
   // Redraw existing strokes after resize
   if (state.sigStrokes && state.sigStrokes.length > 0) {
@@ -167,43 +207,38 @@ function setupSignature() {
   if (!canvas) return;
 
   state.sigStrokes = [];
-  state.sigRenderedIndex = 0;
   state.sigColor = '#171717';
 
-  // Initial sizing (may be 0 if tab is hidden — resizeSignatureCanvas handles that)
   resizeSignatureCanvas();
 
-  canvas.addEventListener('mousedown', function(e) {
+  // Use Pointer Events for unified mouse/touch/stylus handling
+  canvas.addEventListener('pointerdown', function(e) {
     e.preventDefault();
-    startDraw(e.offsetX, e.offsetY, 0.5);
-  });
-  canvas.addEventListener('mousemove', function(e) {
-    if (state.signatureDrawing) draw(e.offsetX, e.offsetY, 0.5);
-  });
-  canvas.addEventListener('mouseup', stopDraw);
-  canvas.addEventListener('mouseleave', stopDraw);
-
-  // Touch support with pressure
-  canvas.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    var t = e.touches[0];
+    canvas.setPointerCapture(e.pointerId);
     var r = canvas.getBoundingClientRect();
-    var pressure = t.force || 0.5;
-    startDraw(t.clientX - r.left, t.clientY - r.top, pressure);
-  }, { passive: false });
-
-  canvas.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-    if (state.signatureDrawing) {
-      var t = e.touches[0];
-      var r = canvas.getBoundingClientRect();
-      var pressure = t.force || 0.5;
-      draw(t.clientX - r.left, t.clientY - r.top, pressure);
+    var pressure = (e.pointerType === 'pen' && e.pressure > 0 && e.pressure < 1) ? e.pressure : 0.5;
+    if (e.pointerType === 'pen' && e.pressure > 0 && e.pressure < 1) {
+      state.sigRealPressure = true;
     }
-  }, { passive: false });
+    startDraw(e.clientX - r.left, e.clientY - r.top, pressure);
+  });
+  canvas.addEventListener('pointermove', function(e) {
+    if (!state.signatureDrawing) return;
+    e.preventDefault();
+    var r = canvas.getBoundingClientRect();
+    var pressure = state.sigRealPressure ? e.pressure : 0.5;
+    draw(e.clientX - r.left, e.clientY - r.top, pressure);
+  });
+  canvas.addEventListener('pointerup', stopDraw);
+  canvas.addEventListener('pointerleave', function(e) {
+    if (state.signatureDrawing && !canvas.hasPointerCapture(e.pointerId)) {
+      stopDraw();
+    }
+  });
+  canvas.addEventListener('pointercancel', stopDraw);
 
-  canvas.addEventListener('touchend', stopDraw);
-  canvas.addEventListener('touchcancel', stopDraw);
+  // Prevent touch scrolling on canvas
+  canvas.style.touchAction = 'none';
 }
 
 function startDraw(x, y, pressure) {
@@ -211,7 +246,6 @@ function startDraw(x, y, pressure) {
   state.signatureHasContent = true;
   state.sigPoints = [createPoint(x, y, pressure)];
   state.sigLastPoint = state.sigPoints[0];
-  state.sigRenderedIndex = 0;
   updateSigStatus();
   renderSigFrame();
 }
@@ -219,27 +253,34 @@ function startDraw(x, y, pressure) {
 function draw(x, y, pressure) {
   if (!state.signatureDrawing) return;
 
-  var lastPoint = state.sigLastPoint;
-  if (lastPoint) {
-    var dx = x - lastPoint.x;
-    var dy = y - lastPoint.y;
-    var distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance < SMOOTH_CONFIG.minDistance) return;
+  var last = state.sigLastPoint;
+  if (last) {
+    var dx = x - last.x;
+    var dy = y - last.y;
+    if (Math.sqrt(dx * dx + dy * dy) < PEN.minPointDist) return;
   }
 
-  var newPoint = createPoint(x, y, pressure);
-  state.sigPoints.push(newPoint);
-  state.sigLastPoint = newPoint;
+  var pt = createPoint(x, y, pressure);
+  state.sigPoints.push(pt);
+  state.sigLastPoint = pt;
 }
 
 function renderSigFrame() {
   if (!state.signatureDrawing) return;
 
-  var points = state.sigPoints;
-  // Only draw new segments since last render (incremental)
-  if (points.length >= 2 && state.sigRenderedIndex < points.length - 1) {
-    drawStrokeSegment(state.signatureCtx, points, state.sigRenderedIndex);
-    state.sigRenderedIndex = Math.max(0, points.length - 2);
+  // Redraw completed strokes + live stroke
+  var canvas = document.getElementById('signatureCanvas');
+  if (!canvas) return;
+  var ctx = state.signatureCtx;
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.width / dpr;
+  var h = canvas.height / dpr;
+  var color = state.sigColor || '#171717';
+
+  renderAllStrokes(ctx, state.sigStrokes, color, w, h);
+  // Draw current live stroke on top
+  if (state.sigPoints && state.sigPoints.length >= 2) {
+    renderStroke(ctx, state.sigPoints, color);
   }
 
   state.sigAnimFrame = requestAnimationFrame(renderSigFrame);
@@ -254,16 +295,16 @@ function stopDraw() {
     state.sigAnimFrame = null;
   }
 
-  // Save completed stroke and redraw everything cleanly
-  if (state.sigPoints.length >= 2) {
-    var smoothed = smoothPoints(state.sigPoints, SMOOTH_CONFIG.smoothing);
-    state.sigStrokes.push(smoothed);
-    redrawAllStrokes();
+  // Save completed stroke
+  if (state.sigPoints && state.sigPoints.length >= 2) {
+    state.sigStrokes.push(state.sigPoints.slice());
   }
 
   state.sigPoints = [];
   state.sigLastPoint = null;
-  state.sigRenderedIndex = 0;
+
+  // Final clean render
+  redrawAllStrokes();
 }
 
 function redrawAllStrokes() {
@@ -271,13 +312,8 @@ function redrawAllStrokes() {
   if (!canvas) return;
   var ctx = state.signatureCtx;
   var dpr = window.devicePixelRatio || 1;
-  ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-  ctx.strokeStyle = state.sigColor || '#171717';
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (var i = 0; i < state.sigStrokes.length; i++) {
-    drawSmoothStroke(ctx, state.sigStrokes[i]);
-  }
+  var color = state.sigColor || '#171717';
+  renderAllStrokes(ctx, state.sigStrokes, color, canvas.width / dpr, canvas.height / dpr);
 }
 
 function clearSignature() {
@@ -289,21 +325,15 @@ function clearSignature() {
   state.sigPoints = [];
   state.sigStrokes = [];
   state.sigLastPoint = null;
-  state.sigRenderedIndex = 0;
   updateSigStatus();
 }
 
 function setSigColor(color) {
   state.sigColor = color;
-  if (state.signatureCtx) {
-    state.signatureCtx.strokeStyle = color;
-  }
-  // Update active button
   var btns = document.querySelectorAll('.sig-color-btn');
   btns.forEach(function(btn) {
     btn.classList.toggle('active', btn.getAttribute('data-color') === color);
   });
-  // Redraw existing strokes with new color
   if (state.sigStrokes && state.sigStrokes.length > 0) {
     redrawAllStrokes();
   }
@@ -321,14 +351,12 @@ function updateSigStatus() {
 // ===== SIGNATURE SOURCE SWITCHING =====
 function switchSigSource(source) {
   state.sigSource = source;
-  // Toggle tabs
   var tabs = document.querySelectorAll('.sig-tab');
   tabs.forEach(function(tab) {
     var label = tab.textContent.trim().toLowerCase();
     var tabSource = label === 'dessiner' ? 'draw' : label === 'importer' ? 'import' : 'saved';
     tab.classList.toggle('active', tabSource === source);
   });
-  // Toggle panes
   var panes = document.querySelectorAll('.sig-source');
   panes.forEach(function(pane) { pane.classList.remove('active'); });
   var paneId = { draw: 'sigSourceDraw', import: 'sigSourceImport', saved: 'sigSourceSaved' }[source];
@@ -341,12 +369,10 @@ function switchSigSource(source) {
 function handleSigFileImport(event) {
   var file = event.target.files[0];
   if (!file) return;
-  // Validate type
   if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
     alert('Format non support\\u00e9. Utilisez PNG ou JPG.');
     return;
   }
-  // Validate size (2 Mo)
   if (file.size > 2 * 1024 * 1024) {
     alert('Fichier trop volumineux. Maximum 2 Mo.');
     return;
@@ -373,7 +399,6 @@ function clearImportedSig() {
   if (img) img.src = '';
   if (preview) preview.style.display = 'none';
   if (importZone) importZone.style.display = 'block';
-  // Reset file input
   var fileInput = document.getElementById('sigFileInput');
   if (fileInput) fileInput.value = '';
   updateSigPlaceBtn();
@@ -398,7 +423,6 @@ function useSavedSignature() {
   if (!saved) return;
   state.sigImportedImage = saved;
   updateSigPlaceBtn();
-  // Visual feedback
   var container = document.getElementById('savedSigContent');
   if (container) {
     var info = container.querySelector('.sig-saved-preview');
@@ -419,6 +443,7 @@ function deleteSavedSignature() {
   try { localStorage.removeItem('docjourney_saved_signature'); } catch(e) {}
   loadSavedSignature();
 }
+
 // ===== SIGNATURE PLACEMENT — DRAG & RESIZE =====
 
 function setupSigDragResize() {
@@ -426,7 +451,6 @@ function setupSigDragResize() {
   var resizeHandle = document.getElementById('sigResizeHandle');
   if (!draggable) return;
 
-  // --- Helpers ---
   function getOverlayBounds() {
     var overlay = document.getElementById('sigPlacementOverlay');
     if (!overlay) return { left: 0, top: 0, width: 800, height: 600 };
@@ -460,13 +484,10 @@ function setupSigDragResize() {
     };
   }
 
-  // --- Visual cursor feedback ---
   draggable.style.cursor = 'grab';
   if (resizeHandle) resizeHandle.style.cursor = 'nwse-resize';
 
-  // --- DRAG ---
   function onMouseDown(e) {
-    // Ignore if clicking the resize handle
     if (resizeHandle && resizeHandle.contains(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -494,7 +515,6 @@ function setupSigDragResize() {
       var dx = e.clientX - state.sigResizeOrigin.x;
       var dy = e.clientY - state.sigResizeOrigin.y;
       var newW, newH;
-      // Proportional resize by default, free resize with Shift
       if (e.shiftKey) {
         newW = Math.max(40, Math.min(600, state.sigResizeOrigin.w + dx));
         newH = Math.max(20, Math.min(400, state.sigResizeOrigin.h + dy));
@@ -529,7 +549,6 @@ function setupSigDragResize() {
     }
   }
 
-  // --- RESIZE ---
   function onResizeDown(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -543,16 +562,13 @@ function setupSigDragResize() {
     };
   }
 
-  // --- Register mouse events ---
   draggable.addEventListener('mousedown', onMouseDown);
   if (resizeHandle) resizeHandle.addEventListener('mousedown', onResizeDown);
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
 
-  // Block clicks from propagating to viewport
   draggable.addEventListener('click', function(e) { e.stopPropagation(); });
 
-  // --- Touch events ---
   draggable.addEventListener('touchstart', function(e) {
     if (resizeHandle && resizeHandle.contains(e.target)) return;
     e.preventDefault();
@@ -596,7 +612,6 @@ function setupSigDragResize() {
       var t = e.touches[0];
       var dx = t.clientX - state.sigResizeOrigin.x;
       var dy = t.clientY - state.sigResizeOrigin.y;
-      // Pinch-style: use diagonal distance for smooth touch resize
       var delta = (dx + dy) / 2;
       var newW = Math.max(40, Math.min(600, state.sigResizeOrigin.w + delta));
       var ratio = newW / state.sigResizeOrigin.w;
@@ -621,19 +636,16 @@ function startSigPlacement() {
   var img = document.getElementById('sigDraggableImg');
   if (!overlay || !draggable || !img) return;
 
-  // Collapse mobile drawer so the user can see the document
   if (window.innerWidth <= 768) {
     collapseMobileDrawer();
   }
 
   img.src = sigImage;
-  // Apply stored scale
   img.style.maxWidth = (200 * state.sigScale) + 'px';
   img.style.maxHeight = (80 * state.sigScale) + 'px';
 
   overlay.style.display = 'block';
 
-  // Place at stored position (below toolbar)
   var ow = overlay.clientWidth || 400;
   var oh = overlay.clientHeight || 400;
   var tb = document.querySelector('.viewer-toolbar');
@@ -696,19 +708,16 @@ function updateSigPlaceBtn() {
 
 // ===== SIGNATURE SECURITY =====
 function setupSigSecurity() {
-  // Disable right-click on signature elements
   document.addEventListener('contextmenu', function(e) {
     if (e.target.closest('.signature-zone, .sig-draggable, .sig-placement-overlay')) {
       e.preventDefault();
     }
   });
-  // Disable native drag on signature images
   document.addEventListener('dragstart', function(e) {
     if (e.target.closest('.signature-zone, .sig-draggable, .sig-placement-overlay')) {
       e.preventDefault();
     }
   });
-  // Block Ctrl+C / Ctrl+S on signature zone
   document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 's')) {
       if (document.activeElement && document.activeElement.closest('.signature-zone, .sig-placement-overlay')) {
@@ -719,14 +728,11 @@ function setupSigSecurity() {
 }
 
 function applyWatermark(srcCanvas) {
-  // Create a copy canvas with watermark
   var wCanvas = document.createElement('canvas');
   wCanvas.width = srcCanvas.width;
   wCanvas.height = srcCanvas.height;
   var ctx = wCanvas.getContext('2d');
-  // Draw original signature
   ctx.drawImage(srcCanvas, 0, 0);
-  // Apply watermark in very low opacity
   ctx.save();
   ctx.globalAlpha = 0.03;
   ctx.font = '10px sans-serif';

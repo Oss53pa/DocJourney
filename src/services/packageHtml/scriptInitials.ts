@@ -1,6 +1,8 @@
 export function generateInitialsScript(): string {
   return `
 // ===== INITIALS (PARAPHE) =====
+// Uses the same pen engine (PEN config, renderStroke, etc.) from scriptSignature.
+
 function resizeInitialsCanvas() {
   var canvas = document.getElementById('initialsCanvas');
   if (!canvas) return;
@@ -8,7 +10,6 @@ function resizeInitialsCanvas() {
   var dpr = window.devicePixelRatio || 1;
   var rect = canvas.parentElement.getBoundingClientRect();
   var width = Math.floor(rect.width - 12);
-  // Skip if container is hidden
   if (width < 10) return;
   var height = 100;
 
@@ -20,53 +21,46 @@ function resizeInitialsCanvas() {
   canvas.style.width = width + 'px';
   canvas.style.height = height + 'px';
 
-  state.initialsCtx = canvas.getContext('2d', { desynchronized: true });
+  state.initialsCtx = canvas.getContext('2d');
   state.initialsCtx.scale(dpr, dpr);
-  state.initialsCtx.strokeStyle = '#171717';
-  state.initialsCtx.lineWidth = 2;
-  state.initialsCtx.lineCap = 'round';
-  state.initialsCtx.lineJoin = 'round';
+
+  if (state.initialsStrokes && state.initialsStrokes.length > 0) {
+    redrawAllInitials();
+  }
 }
 
 function setupInitials() {
   var canvas = document.getElementById('initialsCanvas');
   if (!canvas) return;
 
+  state.initialsStrokes = [];
+
   resizeInitialsCanvas();
 
-  canvas.addEventListener('mousedown', function(e) {
+  // Pointer Events for unified input
+  canvas.addEventListener('pointerdown', function(e) {
     e.preventDefault();
-    startInitialsDraw(e.offsetX, e.offsetY, 0.5);
-  });
-  canvas.addEventListener('mousemove', function(e) {
-    if (state.initialsDrawing) drawInitials(e.offsetX, e.offsetY, 0.5);
-  });
-  canvas.addEventListener('mouseup', stopInitialsDraw);
-  canvas.addEventListener('mouseleave', stopInitialsDraw);
-
-  // Touch support with pressure
-  canvas.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    var t = e.touches[0];
+    canvas.setPointerCapture(e.pointerId);
     var r = canvas.getBoundingClientRect();
-    var pressure = t.force || 0.5;
-    startInitialsDraw(t.clientX - r.left, t.clientY - r.top, pressure);
-  }, { passive: false });
-
-  canvas.addEventListener('touchmove', function(e) {
+    var pressure = (e.pointerType === 'pen' && e.pressure > 0 && e.pressure < 1) ? e.pressure : 0.5;
+    startInitialsDraw(e.clientX - r.left, e.clientY - r.top, pressure);
+  });
+  canvas.addEventListener('pointermove', function(e) {
+    if (!state.initialsDrawing) return;
     e.preventDefault();
-    if (state.initialsDrawing) {
-      var t = e.touches[0];
-      var r = canvas.getBoundingClientRect();
-      var pressure = t.force || 0.5;
-      drawInitials(t.clientX - r.left, t.clientY - r.top, pressure);
+    var r = canvas.getBoundingClientRect();
+    var pressure = (e.pointerType === 'pen' && e.pressure > 0 && e.pressure < 1) ? e.pressure : 0.5;
+    drawInitials(e.clientX - r.left, e.clientY - r.top, pressure);
+  });
+  canvas.addEventListener('pointerup', stopInitialsDraw);
+  canvas.addEventListener('pointerleave', function(e) {
+    if (state.initialsDrawing && !canvas.hasPointerCapture(e.pointerId)) {
+      stopInitialsDraw();
     }
-  }, { passive: false });
+  });
+  canvas.addEventListener('pointercancel', stopInitialsDraw);
+  canvas.style.touchAction = 'none';
 
-  canvas.addEventListener('touchend', stopInitialsDraw);
-  canvas.addEventListener('touchcancel', stopInitialsDraw);
-
-  // Setup page selector
   setupInitialsPageSelector();
 }
 
@@ -81,31 +75,30 @@ function startInitialsDraw(x, y, pressure) {
 
 function drawInitials(x, y, pressure) {
   if (!state.initialsDrawing) return;
-
-  var lastPoint = state.initialsLastPoint;
-  if (lastPoint) {
-    var dx = x - lastPoint.x;
-    var dy = y - lastPoint.y;
-    var distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance < SMOOTH_CONFIG.minDistance) return;
+  var last = state.initialsLastPoint;
+  if (last) {
+    var dx = x - last.x;
+    var dy = y - last.y;
+    if (Math.sqrt(dx * dx + dy * dy) < PEN.minPointDist) return;
   }
-
-  var newPoint = createPoint(x, y, pressure);
-  state.initialsPoints.push(newPoint);
-  state.initialsLastPoint = newPoint;
+  var pt = createPoint(x, y, pressure);
+  state.initialsPoints.push(pt);
+  state.initialsLastPoint = pt;
 }
 
 function renderInitialsFrame() {
   if (!state.initialsDrawing) return;
-
+  var canvas = document.getElementById('initialsCanvas');
+  if (!canvas) return;
   var ctx = state.initialsCtx;
-  var points = state.initialsPoints;
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.width / dpr;
+  var h = canvas.height / dpr;
 
-  if (points.length >= 2) {
-    var smoothed = smoothPoints(points.slice(-6), SMOOTH_CONFIG.smoothing);
-    drawSmoothCurve(ctx, smoothed);
+  renderAllStrokes(ctx, state.initialsStrokes, '#171717', w, h);
+  if (state.initialsPoints && state.initialsPoints.length >= 2) {
+    renderStroke(ctx, state.initialsPoints, '#171717');
   }
-
   state.initialsAnimFrame = requestAnimationFrame(renderInitialsFrame);
 }
 
@@ -118,15 +111,21 @@ function stopInitialsDraw() {
     state.initialsAnimFrame = null;
   }
 
-  // Final render with all points smoothed
-  var ctx = state.initialsCtx;
-  if (state.initialsPoints.length >= 2) {
-    var smoothed = smoothPoints(state.initialsPoints, SMOOTH_CONFIG.smoothing);
-    drawSmoothCurve(ctx, smoothed);
+  if (state.initialsPoints && state.initialsPoints.length >= 2) {
+    state.initialsStrokes.push(state.initialsPoints.slice());
   }
 
   state.initialsPoints = [];
   state.initialsLastPoint = null;
+  redrawAllInitials();
+}
+
+function redrawAllInitials() {
+  var canvas = document.getElementById('initialsCanvas');
+  if (!canvas) return;
+  var ctx = state.initialsCtx;
+  var dpr = window.devicePixelRatio || 1;
+  renderAllStrokes(ctx, state.initialsStrokes, '#171717', canvas.width / dpr, canvas.height / dpr);
 }
 
 // ===== INITIALS PAGE SELECTOR =====
@@ -473,6 +472,7 @@ function clearInitials() {
   state.initialsCtx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
   state.initialsHasContent = false;
   state.initialsPoints = [];
+  state.initialsStrokes = [];
   state.initialsLastPoint = null;
   state.initialsPlaced = false;
   updateInitialsStatus();
