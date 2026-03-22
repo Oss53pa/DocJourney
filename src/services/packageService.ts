@@ -113,8 +113,19 @@ export async function generatePackage(
     },
     workflow: {
       id: workflow.id,
+      name: workflow.name,
       totalSteps: workflow.steps.length,
       currentStepIndex: stepIndex,
+      validationCompany: workflow.validationCompany,
+      steps: workflow.steps.map(s => ({
+        id: s.id,
+        order: s.order,
+        participant: s.participant,
+        role: s.role,
+        status: s.status,
+        completedAt: s.completedAt,
+        response: s.response,
+      })),
     },
     currentStep: {
       id: step.id,

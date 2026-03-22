@@ -136,7 +136,7 @@ export async function computeHash(data: string): Promise<string> {
 
 export function getRoleLabel(role: ParticipantRole): string {
   const labels: Record<ParticipantRole, string> = {
-    reviewer: 'Annotateur',
+    reviewer: 'Consultant',
     validator: 'Validateur',
     approver: 'Approbateur',
     signer: 'Signataire',
@@ -181,7 +181,7 @@ export function getDecisionLabel(decision: StepDecision): string {
     approved: 'Approuvé',
     rejected: 'Rejeté',
     validated: 'Validé',
-    reviewed: 'Annoté',
+    reviewed: 'Consulté',
     modification_requested: 'Modification demandée',
   };
   return labels[decision];

@@ -273,13 +273,23 @@ export async function sendEmailViaEmailJS(
     throw new Error(validation.error || 'EmailJS non configuré');
   }
 
+  // Validate recipient email
+  const step = workflow.steps[stepIndex];
+  const recipientEmail = step.participant.email?.trim();
+  if (!recipientEmail) {
+    throw new Error(`Adresse email manquante pour le participant "${step.participant.name}"`);
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(recipientEmail)) {
+    throw new Error(`Adresse email invalide pour "${step.participant.name}" : ${recipientEmail}`);
+  }
+
   // Check if Firebase sync is enabled
   const syncEnabled = isSyncConfigured(settings);
   const firebaseConfig = getFirebaseConfig(settings);
 
   console.log('sendEmailViaEmailJS - syncEnabled:', syncEnabled, 'hasFirebaseConfig:', !!firebaseConfig, 'hasHtmlPackage:', !!htmlPackage, 'existingHostedUrl:', existingHostedUrl || 'none');
 
-  const step = workflow.steps[stepIndex];
   const subject = generateEmailSubject(doc, workflow, stepIndex);
 
   // Use existing hosted URL or try to upload
@@ -319,7 +329,7 @@ export async function sendEmailViaEmailJS(
   const htmlContent = generateEmailTemplate(doc, workflow, stepIndex, syncEnabled, hostedUrl);
 
   const templateParams: Record<string, string> = {
-    to_email: step.participant.email,
+    to_email: recipientEmail,
     to_name: step.participant.name,
     from_name: workflow.owner.name,
     from_email: settings.ownerEmail || workflow.owner.email,

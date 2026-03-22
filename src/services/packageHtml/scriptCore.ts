@@ -4,32 +4,23 @@ export function generateCoreScript(stepsJSON: string): string {
 var _libsLoaded = false;
 var _libsCallbacks = [];
 
-function loadPdfLibraries(callback) {
+function loadQRLibrary(callback) {
   if (_libsLoaded) { callback(); return; }
   _libsCallbacks.push(callback);
   if (_libsCallbacks.length > 1) return; // Already loading
 
-  var jspdfScript = document.createElement('script');
-  jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-  jspdfScript.onload = function() {
-    var qrcodeScript = document.createElement('script');
-    qrcodeScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    qrcodeScript.onload = function() {
-      _libsLoaded = true;
-      _libsCallbacks.forEach(function(cb) { cb(); });
-      _libsCallbacks = [];
-    };
-    qrcodeScript.onerror = function() {
-      console.error('Failed to load QRCode library');
-      _libsCallbacks.forEach(function(cb) { cb(new Error('QRCode load failed')); });
-    };
-    document.head.appendChild(qrcodeScript);
+  var qrcodeScript = document.createElement('script');
+  qrcodeScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  qrcodeScript.onload = function() {
+    _libsLoaded = true;
+    _libsCallbacks.forEach(function(cb) { cb(); });
+    _libsCallbacks = [];
   };
-  jspdfScript.onerror = function() {
-    console.error('Failed to load jsPDF library');
-    _libsCallbacks.forEach(function(cb) { cb(new Error('jsPDF load failed')); });
+  qrcodeScript.onerror = function() {
+    console.error('Failed to load QRCode library');
+    _libsCallbacks.forEach(function(cb) { cb(new Error('QRCode load failed')); });
   };
-  document.head.appendChild(jspdfScript);
+  document.head.appendChild(qrcodeScript);
 }
 
 // ===== EMBEDDED DATA =====
@@ -129,7 +120,7 @@ function getParticipantColor(index) {
 }
 
 function getRoleLabel(role) {
-  return {reviewer:'Annotateur',validator:'Validateur',approver:'Approbateur',signer:'Signataire'}[role]||role;
+  return {reviewer:'Consultant',validator:'Validateur',approver:'Approbateur',signer:'Signataire'}[role]||role;
 }
 
 function getDecisionLabel(d) {

@@ -222,7 +222,21 @@ export async function renderReportHTML(
         : format(now, 'yyyyMMdd');
       code = `${initials}${i + 1}-${completedDate}-${shortHash}`;
 
-      const verifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(stepHash.substring(0, 12))}&s=${i + 1}`;
+      // Encode verification payload so the verify page works without DB access
+      const stepPayload = btoa(unescape(encodeURIComponent(JSON.stringify({
+        dn: doc.name,
+        wn: workflow.name,
+        co: company,
+        pn: step.participant.name,
+        ro: step.role,
+        de: step.response?.decision || '',
+        ca: step.completedAt || '',
+        // Fields needed to recompute the hash
+        si: step.id,
+        pe: step.participant.email,
+      }))));
+
+      const verifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(stepHash.substring(0, 12))}&s=${i + 1}&d=${encodeURIComponent(stepPayload)}`;
 
       qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 84, margin: 0, errorCorrectionLevel: 'M' });
     }
@@ -231,7 +245,17 @@ export async function renderReportHTML(
   }));
 
   // Footer QR — URL de vérification globale du document
-  const footerVerifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(fpShort)}`;
+  // Encode verification payload so the verify page works without DB access
+  const docPayload = btoa(unescape(encodeURIComponent(JSON.stringify({
+    dn: doc.name,
+    wn: workflow.name,
+    co: company,
+    ca: workflow.completedAt || '',
+    // Fields needed to recompute the hash
+    di: doc.id,
+    wi: workflow.id,
+  }))));
+  const footerVerifyUrl = `${window.location.origin}/verify?ref=${encodeURIComponent(crvRef)}&h=${encodeURIComponent(fpShort)}&d=${encodeURIComponent(docPayload)}`;
   const footerQrDataUrl = await QRCode.toDataURL(footerVerifyUrl, { width: 112, margin: 0, errorCorrectionLevel: 'M' });
 
   // Description (no esc() here — the template applies esc() when inserting)

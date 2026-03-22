@@ -23,7 +23,7 @@ interface VerificationResult {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  reviewer: 'Annotateur', validator: 'Validateur',
+  reviewer: 'Consultant', validator: 'Validateur',
   approver: 'Approbateur', signer: 'Signataire',
 };
 
@@ -31,6 +31,14 @@ const DECISION_LABELS: Record<string, string> = {
   approved: 'Approuvé', rejected: 'Rejeté', validated: 'Validé',
   reviewed: 'Consulté', modification_requested: 'Corrections demandées',
 };
+
+function decodePayload(encoded: string): Record<string, string> | null {
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+  } catch {
+    return null;
+  }
+}
 
 export default function Verify() {
   const [params] = useSearchParams();
@@ -42,10 +50,116 @@ export default function Verify() {
     verify();
   }, []);
 
+  async function verifyFromDB(ref: string, hash: string, stepIndex: string | null): Promise<boolean> {
+    const reports = await db.validationReports.toArray();
+    const report = reports.find(r => r.reference === ref);
+    if (!report) return false;
+
+    const workflow = await db.workflows.get(report.workflowId) as Workflow | undefined;
+    const doc = await db.documents.get(report.documentId) as DocJourneyDocument | undefined;
+    if (!workflow || !doc) return false;
+
+    const company = workflow.validationCompany || workflow.owner.organization || '';
+
+    if (stepIndex !== null && stepIndex !== undefined) {
+      const idx = parseInt(stepIndex, 10) - 1;
+      const step = workflow.steps[idx];
+      if (!step) return false;
+
+      const stepHash = await computeHash(`${step.id}|${step.participant.email}|${step.completedAt || ''}`);
+      const shortHash = stepHash.substring(0, 12);
+      const hashMatch = hash === shortHash;
+
+      setResult({
+        valid: hashMatch,
+        reference: ref,
+        documentName: doc.name,
+        workflowName: workflow.name,
+        company,
+        fingerprint: stepHash.substring(0, 36).toUpperCase(),
+        stepDetails: {
+          participantName: step.participant.name,
+          role: ROLE_LABELS[step.role] || step.role,
+          decision: step.response?.decision
+            ? (DECISION_LABELS[step.response.decision] || step.response.decision)
+            : 'En attente',
+          completedAt: step.completedAt
+            ? new Date(step.completedAt).toLocaleString('fr-FR')
+            : '-',
+          hashMatch,
+        },
+      });
+    } else {
+      const fpFull = await computeHash(`${ref}|${doc.id}|${workflow.id}|${doc.name}`);
+      const fpShort = fpFull.substring(0, 36).toUpperCase();
+      const hashMatch = hash === fpShort;
+
+      setResult({
+        valid: hashMatch,
+        reference: ref,
+        documentName: doc.name,
+        workflowName: workflow.name,
+        company,
+        completedAt: workflow.completedAt
+          ? new Date(workflow.completedAt).toLocaleString('fr-FR')
+          : undefined,
+        fingerprint: fpShort,
+      });
+    }
+    return true;
+  }
+
+  async function verifyFromPayload(ref: string, hash: string, stepIndex: string | null, payload: Record<string, string>) {
+    if (stepIndex !== null && stepIndex !== undefined) {
+      // Step-level: recompute hash from payload fields
+      const stepHash = await computeHash(`${payload.si}|${payload.pe}|${payload.ca}`);
+      const shortHash = stepHash.substring(0, 12);
+      const hashMatch = hash === shortHash;
+
+      setResult({
+        valid: hashMatch,
+        reference: ref,
+        documentName: payload.dn,
+        workflowName: payload.wn,
+        company: payload.co,
+        fingerprint: stepHash.substring(0, 36).toUpperCase(),
+        stepDetails: {
+          participantName: payload.pn,
+          role: ROLE_LABELS[payload.ro] || payload.ro,
+          decision: payload.de
+            ? (DECISION_LABELS[payload.de] || payload.de)
+            : 'En attente',
+          completedAt: payload.ca
+            ? new Date(payload.ca).toLocaleString('fr-FR')
+            : '-',
+          hashMatch,
+        },
+      });
+    } else {
+      // Document-level: recompute hash from payload fields
+      const fpFull = await computeHash(`${ref}|${payload.di}|${payload.wi}|${payload.dn}`);
+      const fpShort = fpFull.substring(0, 36).toUpperCase();
+      const hashMatch = hash === fpShort;
+
+      setResult({
+        valid: hashMatch,
+        reference: ref,
+        documentName: payload.dn,
+        workflowName: payload.wn,
+        company: payload.co,
+        completedAt: payload.ca
+          ? new Date(payload.ca).toLocaleString('fr-FR')
+          : undefined,
+        fingerprint: fpShort,
+      });
+    }
+  }
+
   async function verify() {
     const ref = params.get('ref') || '';
     const hash = params.get('h') || '';
     const stepIndex = params.get('s');
+    const encodedData = params.get('d');
 
     if (!ref || !hash) {
       setResult({ valid: false, reference: ref || 'Inconnu' });
@@ -54,77 +168,17 @@ export default function Verify() {
     }
 
     try {
-      // Find the report by reference
-      const reports = await db.validationReports.toArray();
-      const report = reports.find(r => r.reference === ref);
+      // Try local DB first
+      const foundInDB = await verifyFromDB(ref, hash, stepIndex);
 
-      if (!report) {
-        setResult({ valid: false, reference: ref });
-        setLoading(false);
-        return;
-      }
-
-      const workflow = await db.workflows.get(report.workflowId) as Workflow | undefined;
-      const doc = await db.documents.get(report.documentId) as DocJourneyDocument | undefined;
-
-      if (!workflow || !doc) {
-        setResult({ valid: false, reference: ref });
-        setLoading(false);
-        return;
-      }
-
-      const company = workflow.validationCompany || workflow.owner.organization || '';
-
-      // Step-level verification
-      if (stepIndex !== null && stepIndex !== undefined) {
-        const idx = parseInt(stepIndex, 10) - 1;
-        const step = workflow.steps[idx];
-        if (!step) {
+      if (!foundInDB) {
+        // Fallback: decode embedded payload from URL
+        const payload = encodedData ? decodePayload(encodedData) : null;
+        if (payload) {
+          await verifyFromPayload(ref, hash, stepIndex, payload);
+        } else {
           setResult({ valid: false, reference: ref });
-          setLoading(false);
-          return;
         }
-
-        const stepHash = await computeHash(`${step.id}|${step.participant.email}|${step.completedAt || ''}`);
-        const shortHash = stepHash.substring(0, 12);
-        const hashMatch = hash === shortHash;
-
-        setResult({
-          valid: hashMatch,
-          reference: ref,
-          documentName: doc.name,
-          workflowName: workflow.name,
-          company,
-          fingerprint: stepHash.substring(0, 36).toUpperCase(),
-          stepDetails: {
-            participantName: step.participant.name,
-            role: ROLE_LABELS[step.role] || step.role,
-            decision: step.response?.decision
-              ? (DECISION_LABELS[step.response.decision] || step.response.decision)
-              : 'En attente',
-            completedAt: step.completedAt
-              ? new Date(step.completedAt).toLocaleString('fr-FR')
-              : '-',
-            hashMatch,
-          },
-        });
-      } else {
-        // Document-level verification
-        const fpFull = await computeHash(`${ref}|${doc.id}|${workflow.id}|${doc.name}`);
-        const fpShort = fpFull.substring(0, 36).toUpperCase();
-        const hashMatch = hash === fpShort;
-
-        setResult({
-          valid: hashMatch,
-          reference: ref,
-          documentName: doc.name,
-          workflowName: workflow.name,
-          company,
-          completedAt: workflow.completedAt
-            ? new Date(workflow.completedAt).toLocaleString('fr-FR')
-            : undefined,
-          fingerprint: fpShort,
-        });
       }
     } catch {
       setResult({ valid: false, reference: ref });

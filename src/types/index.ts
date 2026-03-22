@@ -406,8 +406,19 @@ export interface PackageData {
   };
   workflow: {
     id: string;
+    name: string;
     totalSteps: number;
     currentStepIndex: number;
+    validationCompany?: string;
+    steps: Array<{
+      id: string;
+      order: number;
+      participant: Participant & { organization?: string };
+      role: ParticipantRole;
+      status: StepStatus;
+      completedAt?: Date | string;
+      response?: StepResponse;
+    }>;
   };
   currentStep: {
     id: string;

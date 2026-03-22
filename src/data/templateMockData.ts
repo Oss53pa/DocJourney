@@ -411,14 +411,14 @@ export function generateReceiptPreview(): string {
   };
 
   const roleLabels: Record<string, string> = {
-    reviewer: 'Annotateur',
+    reviewer: 'Consultant',
     validator: 'Validateur',
     approver: 'Approbateur',
     signer: 'Signataire',
   };
 
   const decisionLabels: Record<string, string> = {
-    reviewed: 'Annoté',
+    reviewed: 'Consulté',
     validated: 'Validé',
     approved: 'Approuvé',
     rejected: 'Rejeté',

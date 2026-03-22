@@ -8,7 +8,7 @@ import type { WorkflowTemplate, WorkflowTemplateStep, ParticipantRole } from '..
 import Modal from '../common/Modal';
 
 const ROLES: { value: ParticipantRole; label: string }[] = [
-  { value: 'reviewer', label: 'Annotateur' },
+  { value: 'reviewer', label: 'Consultant' },
   { value: 'validator', label: 'Validateur' },
   { value: 'approver', label: 'Approbateur' },
   { value: 'signer', label: 'Signataire' },

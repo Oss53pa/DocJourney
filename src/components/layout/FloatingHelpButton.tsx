@@ -31,7 +31,7 @@ const helpSections: HelpSection[] = [
     icon: <GitBranch size={16} className="text-violet-600" />,
     title: 'Créer un circuit de validation',
     content:
-      'Ouvrez un document, puis cliquez sur "Créer un workflow". Ajoutez les participants (annotateur, validateur, approbateur, signataire) dans l\'ordre souhaité. Vous pouvez utiliser un modèle prédéfini.',
+      'Ouvrez un document, puis cliquez sur "Créer un workflow". Ajoutez les participants (consultant, validateur, approbateur, signataire) dans l\'ordre souhaité. Vous pouvez utiliser un modèle prédéfini.',
   },
   {
     icon: <Send size={16} className="text-emerald-600" />,
