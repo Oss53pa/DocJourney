@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, Send, Upload, FileText, Clock, CheckCircle2,
-  XCircle, AlertCircle, Eye, EyeOff, MessageSquare, Ban, Mail, Cloud,
+  XCircle, AlertCircle, Eye, EyeOff, MessageSquare, Ban, Cloud,
 } from 'lucide-react';
 import { db } from '../db';
 import type { DocJourneyDocument, Workflow, Annotation } from '../types';
@@ -19,7 +19,7 @@ import { autoAdvanceToNextStep } from '../services/autoAdvanceService';
 import { generateValidationReport, downloadReport, getReport } from '../services/reportService';
 import { generateEmailTemplate } from '../services/emailService';
 import { uploadPackageToStorage, isSyncConfigured, getFirebaseConfig } from '../services/firebaseSyncService';
-import { generateMailtoLink } from '../services/reminderService';
+import RelanceButton from '../components/common/RelanceButton';
 import { useSettings } from '../hooks/useSettings';
 import { useWorkflowTemplates } from '../hooks/useWorkflowTemplates';
 import CloudExportModal from '../components/cloud/CloudExportModal';
@@ -383,18 +383,16 @@ export default function DocumentDetail() {
                 <input ref={returnFileRef} type="file" accept=".docjourney" className="hidden" onChange={handleReturnImport} />
               </label>
               {workflow.steps[workflow.currentStepIndex] && settings.ownerName && (
-                <a
-                  href={generateMailtoLink(
-                    workflow.steps[workflow.currentStepIndex].participant.email,
-                    workflow.steps[workflow.currentStepIndex].participant.name,
-                    doc.name,
-                    settings.ownerName
-                  )}
+                <RelanceButton
+                  recipientEmail={workflow.steps[workflow.currentStepIndex].participant.email}
+                  recipientName={workflow.steps[workflow.currentStepIndex].participant.name}
+                  documentName={doc.name}
+                  ownerName={settings.ownerName}
+                  ownerEmail={settings.ownerEmail || ''}
+                  documentId={doc.id}
+                  workflowId={workflow.id}
                   className="btn-secondary"
-                >
-                  <Mail size={15} />
-                  <span className="hidden sm:inline">Relancer</span>
-                </a>
+                />
               )}
               <button onClick={() => setShowCancelModal(true)} className="btn-ghost text-red-600 hover:bg-red-50">
                 <Ban size={15} />

@@ -375,3 +375,78 @@ export async function sendEmailViaEmailJS(
     throw new Error(`Erreur EmailJS: ${errorMessage}`);
   }
 }
+
+export async function sendRelanceEmail(
+  recipientEmail: string,
+  recipientName: string,
+  documentName: string,
+  ownerName: string,
+  ownerEmail: string,
+  settings: AppSettings
+): Promise<void> {
+  const validation = validateEmailJSConfig(settings);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'EmailJS non configuré');
+  }
+
+  const email = recipientEmail?.trim();
+  if (!email) {
+    throw new Error(`Adresse email manquante pour "${recipientName}"`);
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error(`Adresse email invalide : ${email}`);
+  }
+
+  const htmlContent = `
+<div style="font-family:'Exo 2',Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff">
+  <div style="background:#171717;padding:32px 40px;border-radius:16px 16px 0 0">
+    <h1 style="font-family:'Grand Hotel',Georgia,cursive;font-size:32px;color:#ffffff;margin:0;font-weight:400">DocJourney</h1>
+    <p style="color:rgba(255,255,255,0.5);font-size:11px;margin:4px 0 0;letter-spacing:2px;text-transform:uppercase;font-weight:400">Relance</p>
+  </div>
+  <div style="padding:32px 40px;background:#ffffff;border-left:1px solid #e5e5e5;border-right:1px solid #e5e5e5">
+    <p style="font-size:15px;color:#171717;margin:0 0 24px;line-height:1.6">
+      Bonjour <strong>${recipientName}</strong>,
+    </p>
+    <p style="font-size:14px;color:#525252;margin:0 0 24px;line-height:1.7">
+      Je me permets de vous relancer concernant le document <strong>&laquo;&nbsp;${documentName}&nbsp;&raquo;</strong> qui est en attente de votre traitement.
+    </p>
+    <p style="font-size:14px;color:#525252;margin:0 0 24px;line-height:1.7">
+      Merci de bien vouloir traiter ce document dans les meilleurs délais.
+    </p>
+    <p style="font-size:14px;color:#525252;margin:0;line-height:1.7">
+      Cordialement,<br><strong>${ownerName}</strong>
+    </p>
+  </div>
+  <div style="background:#f5f5f5;padding:24px 40px;border-radius:0 0 16px 16px;border:1px solid #e5e5e5;border-top:none">
+    <p style="font-size:11px;color:#a3a3a3;margin:0;text-align:center">
+      Envoyé via <strong>DocJourney</strong>
+      <br>Le voyage du document à travers son circuit de validation
+    </p>
+  </div>
+</div>`.trim();
+
+  const templateParams: Record<string, string> = {
+    to_email: email,
+    to_name: recipientName,
+    from_name: ownerName,
+    from_email: ownerEmail,
+    subject: `Relance : ${documentName}`,
+    message_html: htmlContent,
+    document_name: documentName,
+    reply_to: ownerEmail,
+  };
+
+  try {
+    await emailjs.send(
+      settings.emailjsServiceId!,
+      settings.emailjsTemplateId!,
+      templateParams,
+      settings.emailjsPublicKey!
+    );
+  } catch (error: unknown) {
+    const emailJsError = error as { text?: string; message?: string; status?: number };
+    const errorMessage = emailJsError.text || emailJsError.message || 'Erreur inconnue';
+    throw new Error(`Erreur EmailJS: ${errorMessage}`);
+  }
+}

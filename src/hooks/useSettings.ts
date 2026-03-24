@@ -25,6 +25,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   retentionNotifyDaysBefore: 2,
   retentionAutoBackupToCloud: true,
   retentionExcludeStatuses: [] as DocumentStatus[],
+  // Reminders
+  remindersEnabled: true,
+  browserNotificationsEnabled: true,
+  defaultDeadlineDays: 14,
+  reminderAdvanceDays: 3,
   // Domain whitelist
   defaultAllowSubdomains: true,
   domainCaseSensitive: false,

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Clock, AlertCircle, CheckCircle2, XCircle,
-  Upload, FileText, ArrowRight, Inbox, ChevronRight, AlertTriangle, Mail, FileEdit,
+  Upload, FileText, ArrowRight, Inbox, ChevronRight, AlertTriangle, FileEdit,
   FolderKanban, Trash2, Cloud, CloudOff, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -18,7 +18,7 @@ import { deleteDocument } from '../services/documentService';
 import { parseReturnFile } from '../services/packageService';
 import { processReturn } from '../services/workflowService';
 import { useUpcomingDeadlines } from '../hooks/useReminders';
-import { generateMailtoLink } from '../services/reminderService';
+import RelanceButton from '../components/common/RelanceButton';
 import { useSettings } from '../hooks/useSettings';
 import BlockedWorkflowsList from '../components/blockage/BlockedWorkflowsList';
 import { useFirebaseSyncContext } from '../components/layout/AppLayout';
@@ -618,18 +618,19 @@ export default function Dashboard() {
                         </p>
                       </div>
                       {currentStep && settings.ownerName && (
-                        <a
-                          href={generateMailtoLink(
-                            currentStep.participant.email,
-                            currentStep.participant.name,
-                            documentName,
-                            settings.ownerName
-                          )}
+                        <RelanceButton
+                          recipientEmail={currentStep.participant.email}
+                          recipientName={currentStep.participant.name}
+                          documentName={documentName}
+                          ownerName={settings.ownerName}
+                          ownerEmail={settings.ownerEmail || ''}
+                          documentId={workflow.documentId}
+                          workflowId={workflow.id}
                           className="btn-ghost btn-sm text-amber-600 hover:bg-amber-50 flex-shrink-0"
+                          compact
+                          iconSize={14}
                           onClick={e => e.stopPropagation()}
-                        >
-                          <Mail size={14} /> <span className="hidden sm:inline">Relancer</span>
-                        </a>
+                        />
                       )}
                     </div>
                   );
